@@ -29,7 +29,7 @@ Single multiplatform target (iOS + macOS, deployment target 26.0), SwiftUI + Swi
 
 Cross-platform rules: no UIKit-only toolbar placements (`.navigationBarTrailing`), no `EditButton`, no `.tabViewStyle(.page)`; use `.primaryAction`, context menus, and `formStyle(.grouped)`.
 
-Not yet implemented from the spec: CloudKit sync, auto-population on add (model lookup / barcode / photo recognition), companion-tool suggestions, identify-tool-by-photo search, taxonomy editing UI.
+Remaining and suggested work is tracked in `TODO.md` — check it before starting a feature, and check items off as they land.
 
 ## What Is Being Built
 
