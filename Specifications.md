@@ -1,0 +1,36 @@
+# Specifications  
+  
+- Application name is “toolbelt”  
+- iOS and MacOS application, latest version of OSes  
+- Latest APIs and frameworks, strategic and long-term supported  
+- Personal inventory of power tools and hand tools  
+- Currently used tools are foremost, but sold and retired tools are accessible  
+- Tools are hierarchically categorized by power vs hand, then type and subtype  
+    - Power tools are further distinguished by corded vs battery; battery further by 12V, 18V; 2AH, 5AH, etc  
+    - Example default power tool type like Drill, with subtype like SDS Max, Hammer, Mixing, etc  
+    - Example default hand tool like Chisel, with subtype like wood, masonry, demolition; then 1/2”, 1”, 14mm  
+    - Complete set of defaults to get started, with ability to add, delete, modify  
+- Each catalogued tool includes various attributes, in addition to category, type, subtype, etc  
+    - Pictures of tool  
+    - Storage location  
+    - Purchase date, store, tool age, etc; when known  
+    - Tool brand; links to manufacturer’s tool specifications, documentation, etc  
+    - Tips, tricks; links to HOW TO videos detailing tool use and projects in which the tool is featured  
+        - Ideally automatically populated when the tool is added  
+    - Suggested companion or complementary tools; link to those already owned or where to buy if not possessed  
+- App should start by displaying tools in list by category, types, etc  
+    - Default sort order, like power/hand, then top-level category  
+    - Ability to modify sort order on any shared attributes, types, etc; set any sort order as default  
+    - Provide statistics on tools owned rolled up to top-level, then power/hand, then category, etc  
+        - Number of tools, number with Festool 18V 4AH tools; then 18V 4AH in category Drills, etc  
+    - Ability to add a new tool  
+        - Use automation always to automatically pre-populate as many details as possible by prompting for a distinguishing characteristic like brand, model number, scan QR/bar code, take picture of product box/packaging, … whatever makes sense  
+    - Ability to remove one or more tools by disposition (sold, retired, etc)  
+    - Select a tool to view its details; then back out to list  
+- When drilling down on a tool in the list, display the tool’s details in a pleasing manner, easy to navigate, using the modern controls one expects from iOS, MacOS  
+- The tool inventory is available to all of the user’s devices that can run the application; no sharing with any other users at this time  
+- Most functions should work without a network connection, and those capabilities that would benefit from a network connection should gracefully degrade back to a usable modality whenever a network connection is lost or not otherwise available   
+    - Updates/changes that took place during a loss of network connectivity should synchronize to the cloud when a network connection is re-established   
+- Capability to search for a tool by any attribute or information about a tool  
+    - If possible, take a picture of the tool at hand and be shown the detail page for that tool  
+  
