@@ -7,6 +7,7 @@ struct ToolDetailView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @State private var showingEditSheet = false
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         Form {
@@ -97,6 +98,18 @@ struct ToolDetailView: View {
         .sheet(isPresented: $showingEditSheet) {
             ToolFormView(tool: tool)
         }
+        .confirmationDialog(
+            "Delete \(tool.name)?",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                context.delete(tool)
+                dismiss()
+            }
+        } message: {
+            Text("This permanently removes the tool and its photos.")
+        }
     }
 
     private var manufacturerURL: URL? {
@@ -118,8 +131,7 @@ struct ToolDetailView: View {
             }
             Divider()
             Button(role: .destructive) {
-                context.delete(tool)
-                dismiss()
+                showingDeleteConfirmation = true
             } label: {
                 Label("Delete Tool", systemImage: "trash")
             }

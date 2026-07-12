@@ -19,6 +19,7 @@ struct ToolListView: View {
     @Query(sort: \Tool.name) private var tools: [Tool]
     @State private var searchText = ""
     @State private var showingAddSheet = false
+    @State private var toolPendingDelete: Tool?
     // Spec: any sort order can be saved as the default, so persist it.
     @AppStorage("defaultSortOption") private var sortRaw = SortOption.type.rawValue
 
@@ -96,6 +97,23 @@ struct ToolListView: View {
         .sheet(isPresented: $showingAddSheet) {
             ToolFormView()
         }
+        .confirmationDialog(
+            "Delete \(toolPendingDelete?.name ?? "Tool")?",
+            isPresented: Binding(
+                get: { toolPendingDelete != nil },
+                set: { if !$0 { toolPendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let tool = toolPendingDelete {
+                    context.delete(tool)
+                }
+                toolPendingDelete = nil
+            }
+        } message: {
+            Text("This permanently removes the tool and its photos.")
+        }
     }
 
     private var summarySection: some View {
@@ -131,7 +149,7 @@ struct ToolListView: View {
         }
         Divider()
         Button(role: .destructive) {
-            context.delete(tool)
+            toolPendingDelete = tool
         } label: {
             Label("Delete", systemImage: "trash")
         }
