@@ -6,6 +6,10 @@ struct ToolDetailView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query private var allTools: [Tool]
+    @State private var companions: [CompanionSuggestion]?
+    @State private var companionsBusy = false
+    @State private var companionsError: String?
     @State private var showingEditSheet = false
     @State private var showingDeleteConfirmation = false
     @State private var galleryPresentation: GalleryPresentation?
@@ -99,6 +103,8 @@ struct ToolDetailView: View {
                     Text(tool.notes)
                 }
             }
+
+            companionsSection
         }
         .formStyle(.grouped)
         .navigationTitle(tool.name)
@@ -128,6 +134,93 @@ struct ToolDetailView: View {
         } message: {
             Text("This permanently removes the tool and its photos.")
         }
+    }
+
+    // MARK: Companion suggestions
+
+    private var companionsSection: some View {
+        Section {
+            if let companions {
+                if companions.isEmpty {
+                    Text("No suggestions.")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(companions, id: \.self) { companion in
+                    companionRow(companion)
+                }
+            }
+            Button {
+                Task { await loadCompanions() }
+            } label: {
+                if companionsBusy {
+                    HStack {
+                        ProgressView()
+                        Text("Thinking…")
+                    }
+                } else {
+                    Label(
+                        companions == nil ? "Suggest Companion Tools" : "Refresh Suggestions",
+                        systemImage: "sparkles"
+                    )
+                }
+            }
+            .disabled(companionsBusy)
+        } header: {
+            Text("Companions")
+        } footer: {
+            if let companionsError {
+                Text(companionsError).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func companionRow(_ companion: CompanionSuggestion) -> some View {
+        let owned = companion.name.flatMap { name in
+            allTools.first { $0 !== tool && $0.matches(name) }
+        }
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(companion.name ?? "Suggestion")
+                    .font(.headline)
+                Spacer()
+                if let owned {
+                    NavigationLink(value: owned) {
+                        Text("Owned")
+                            .font(.caption)
+                    }
+                    .fixedSize()
+                } else if let query = companion.searchQuery ?? companion.name,
+                          let url = shopSearchURL(for: query) {
+                    Link("Find", destination: url)
+                        .font(.caption)
+                }
+            }
+            if let reason = companion.reason {
+                Text(reason)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func loadCompanions() async {
+        companionsError = nil
+        companionsBusy = true
+        defer { companionsBusy = false }
+        do {
+            companions = try await AIService.shared.suggestCompanions(for: ToolSnapshot(tool: tool))
+        } catch let error as AIError {
+            companionsError = error.errorDescription
+        } catch {
+            companionsError = error.localizedDescription
+        }
+    }
+
+    private func shopSearchURL(for query: String) -> URL? {
+        var components = URLComponents(string: "https://www.google.com/search")
+        components?.queryItems = [URLQueryItem(name: "q", value: "\(query) buy")]
+        return components?.url
     }
 
     private var manufacturerURL: URL? {

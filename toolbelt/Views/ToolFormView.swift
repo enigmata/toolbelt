@@ -30,6 +30,16 @@ struct ToolFormView: View {
     @State private var newPhotoData: [Data] = []
     @State private var photosToDelete: [ToolPhoto] = []
     @State private var showingCamera = false
+    @State private var showingScanner = false
+    @State private var showingPackagingCamera = false
+    @State private var aiBusy = false
+    @State private var aiErrorMessage: String?
+    @State private var pendingSuggestion: PendingSuggestion?
+
+    struct PendingSuggestion: Identifiable {
+        let id = UUID()
+        let suggestion: ToolDetailsSuggestion
+    }
 
     init(tool: Tool? = nil) {
         self.tool = tool
@@ -58,6 +68,8 @@ struct ToolFormView: View {
     var body: some View {
         NavigationStack {
             Form {
+                autoFillSection
+
                 Section("Identity") {
                     TextField("Name", text: $name)
                     TextField("Brand", text: $brand)
@@ -151,7 +163,194 @@ struct ToolFormView: View {
                     newPhotoData.append(data)
                 }
             }
+            .fullScreenCover(isPresented: $showingPackagingCamera) {
+                CameraCaptureView { data in
+                    Task { await extractFromPhoto(data) }
+                }
+            }
+            .sheet(isPresented: $showingScanner) {
+                BarcodeScannerView { payload in
+                    Task { await lookup { try await AIService.shared.lookupToolDetails(barcode: payload) } }
+                }
+            }
+            .sheet(item: $pendingSuggestion) { pending in
+                SuggestionReviewView(
+                    entries: reviewEntries(for: pending.suggestion),
+                    onApply: {
+                        apply(pending.suggestion)
+                        pendingSuggestion = nil
+                    },
+                    onCancel: { pendingSuggestion = nil }
+                )
+            }
         }
+    }
+
+    // MARK: Auto-fill
+
+    private var autoFillSection: some View {
+        Section {
+            Button {
+                Task {
+                    await lookup {
+                        var suggestion = try await AIService.shared.lookupToolDetails(brand: brand, model: modelNumber)
+                        // Top up missing links when the form has none yet.
+                        if manufacturerLink.isEmpty, howToLink.isEmpty,
+                           suggestion.manufacturerLink == nil || suggestion.howToLink == nil {
+                            if let links = try? await AIService.shared.suggestLinks(brand: brand, model: modelNumber) {
+                                suggestion.manufacturerLink = suggestion.manufacturerLink ?? links.manufacturerLink
+                                suggestion.howToLink = suggestion.howToLink ?? links.howToLinks?.first?.url
+                            }
+                        }
+                        return suggestion
+                    }
+                }
+            } label: {
+                Label("Look Up Brand + Model", systemImage: "sparkle.magnifyingglass")
+            }
+            .disabled(brand.trimmingCharacters(in: .whitespaces).isEmpty
+                      || modelNumber.trimmingCharacters(in: .whitespaces).isEmpty)
+
+            Button {
+                showingScanner = true
+            } label: {
+                Label("Scan Barcode", systemImage: "barcode.viewfinder")
+            }
+
+            Button {
+                showingPackagingCamera = true
+            } label: {
+                Label("From Packaging Photo", systemImage: "camera.viewfinder")
+            }
+
+            if aiBusy {
+                HStack {
+                    ProgressView()
+                    Text("Asking \(AIService.shared.activeProvider?.displayName ?? "AI")…")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Auto-Fill")
+        } footer: {
+            if let aiErrorMessage {
+                Text(aiErrorMessage)
+                    .foregroundStyle(.orange)
+            } else {
+                Text("Suggestions fill empty fields only; review before applying. Configure the provider in AI Settings.")
+            }
+        }
+    }
+
+    private func lookup(_ operation: () async throws -> ToolDetailsSuggestion) async {
+        aiErrorMessage = nil
+        aiBusy = true
+        defer { aiBusy = false }
+        do {
+            let suggestion = try await operation()
+            if reviewEntries(for: suggestion).isEmpty {
+                aiErrorMessage = "No new details found — fields already filled or nothing recognized."
+            } else {
+                pendingSuggestion = PendingSuggestion(suggestion: suggestion)
+            }
+        } catch let error as AIError {
+            aiErrorMessage = error.errorDescription
+        } catch {
+            aiErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func extractFromPhoto(_ data: Data) async {
+        guard let downscaled = downscaledJPEG(from: data) else {
+            aiErrorMessage = "Couldn't read the photo."
+            return
+        }
+        await lookup { try await AIService.shared.extractDetails(fromImage: downscaled) }
+    }
+
+    private func downscaledJPEG(from data: Data, maxDimension: CGFloat = 1568) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+        let largest = max(image.size.width, image.size.height)
+        guard largest > maxDimension else {
+            return image.jpegData(compressionQuality: 0.7)
+        }
+        let scale = maxDimension / largest
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let resized = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+        return resized.jpegData(compressionQuality: 0.7)
+    }
+
+    /// Suggested values that would land in currently-empty fields.
+    private func reviewEntries(for suggestion: ToolDetailsSuggestion) -> [(label: String, value: String)] {
+        var entries: [(String, String)] = []
+        func add(_ label: String, _ value: String?, ifEmpty current: String) {
+            if let value, !value.isEmpty, current.trimmingCharacters(in: .whitespaces).isEmpty {
+                entries.append((label, value))
+            }
+        }
+        add("Name", suggestion.name, ifEmpty: name)
+        add("Brand", suggestion.brand, ifEmpty: brand)
+        add("Model Number", suggestion.modelNumber, ifEmpty: modelNumber)
+        if selectedType == nil, let path = suggestion.suggestedTypePath,
+           matchType(forPath: path) != nil {
+            entries.append(("Type", path))
+        }
+        if powerSource == nil, let source = suggestion.powerSource,
+           PowerSource(rawValue: source) != nil {
+            entries.append(("Power Source", source))
+        }
+        if batteryVoltage == nil, let volts = suggestion.batteryVoltage {
+            entries.append(("Voltage", "\(volts)V"))
+        }
+        if batteryAmpHours == nil, let ampHours = suggestion.batteryAmpHours {
+            entries.append(("Capacity", "\(ampHours.formatted())Ah"))
+        }
+        add("Manufacturer Link", suggestion.manufacturerLink, ifEmpty: manufacturerLink)
+        add("How-To Link", suggestion.howToLink, ifEmpty: howToLink)
+        add("Notes", suggestion.notes, ifEmpty: notes)
+        return entries
+    }
+
+    private func apply(_ suggestion: ToolDetailsSuggestion) {
+        func fill(_ current: inout String, with value: String?) {
+            if current.trimmingCharacters(in: .whitespaces).isEmpty, let value, !value.isEmpty {
+                current = value
+            }
+        }
+        fill(&name, with: suggestion.name)
+        fill(&brand, with: suggestion.brand)
+        fill(&modelNumber, with: suggestion.modelNumber)
+        if selectedType == nil, let path = suggestion.suggestedTypePath {
+            selectedType = matchType(forPath: path)
+        }
+        if powerSource == nil, let source = suggestion.powerSource {
+            powerSource = PowerSource(rawValue: source)
+        }
+        if batteryVoltage == nil { batteryVoltage = suggestion.batteryVoltage }
+        if batteryAmpHours == nil { batteryAmpHours = suggestion.batteryAmpHours }
+        fill(&manufacturerLink, with: suggestion.manufacturerLink)
+        fill(&howToLink, with: suggestion.howToLink)
+        fill(&notes, with: suggestion.notes)
+    }
+
+    /// Case-insensitive taxonomy match: full path first, then the last
+    /// component, then the root name.
+    private func matchType(forPath path: String) -> ToolType? {
+        let lowered = path.lowercased()
+        if let exact = allTypes.first(where: { $0.path.lowercased() == lowered }) {
+            return exact
+        }
+        if let leaf = path.components(separatedBy: " › ").last?.lowercased(),
+           let byLeaf = allTypes.first(where: { $0.name.lowercased() == leaf }) {
+            return byLeaf
+        }
+        if let rootName = path.components(separatedBy: " › ").first?.lowercased() {
+            return allTypes.first { $0.parent == nil && $0.name.lowercased() == rootName }
+        }
+        return nil
     }
 
     /// Existing photos minus those marked for removal; deletion is deferred
