@@ -78,6 +78,9 @@ struct ToolListView: View {
             ToolbarItem {
                 EditButton()
             }
+            ToolbarItem {
+                exportMenu
+            }
             if editMode == .active && !selection.isEmpty {
                 ToolbarItem(placement: .bottomBar) {
                     bulkActionMenu
@@ -131,6 +134,25 @@ struct ToolListView: View {
             }
         } label: {
             Label("Sort", systemImage: "arrow.up.arrow.down")
+        }
+    }
+
+    private var exportMenu: some View {
+        Menu {
+            ShareLink(
+                item: CSVExport(data: Data(ExportService.csv(for: filtered).utf8)),
+                preview: SharePreview("Toolbelt Inventory (CSV)")
+            ) {
+                Label("Export CSV", systemImage: "tablecells")
+            }
+            ShareLink(
+                item: JSONExport(data: (try? ExportService.json(for: filtered)) ?? Data()),
+                preview: SharePreview("Toolbelt Inventory (JSON)")
+            ) {
+                Label("Export JSON", systemImage: "curlybraces")
+            }
+        } label: {
+            Label("Export", systemImage: "square.and.arrow.up")
         }
     }
 

@@ -8,17 +8,32 @@ struct ToolDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingEditSheet = false
     @State private var showingDeleteConfirmation = false
+    @State private var galleryPresentation: GalleryPresentation?
+
+    private struct GalleryPresentation: Identifiable {
+        let id = UUID()
+        let index: Int
+    }
+
+    private var sortedPhotos: [ToolPhoto] {
+        (tool.photos ?? []).sorted { $0.createdAt < $1.createdAt }
+    }
 
     var body: some View {
         Form {
-            if let photos = tool.photos, !photos.isEmpty {
+            if !sortedPhotos.isEmpty {
                 Section {
                     ScrollView(.horizontal) {
                         HStack(spacing: 12) {
-                            ForEach(photos) { photo in
-                                PhotoImage(data: photo.data)
-                                    .frame(height: 180)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            ForEach(Array(sortedPhotos.enumerated()), id: \.offset) { index, photo in
+                                Button {
+                                    galleryPresentation = GalleryPresentation(index: index)
+                                } label: {
+                                    PhotoImage(data: photo.data)
+                                        .frame(height: 180)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -97,6 +112,9 @@ struct ToolDetailView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             ToolFormView(tool: tool)
+        }
+        .fullScreenCover(item: $galleryPresentation) { presentation in
+            PhotoGalleryView(photos: sortedPhotos, initialIndex: presentation.index)
         }
         .confirmationDialog(
             "Delete \(tool.name)?",
