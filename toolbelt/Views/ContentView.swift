@@ -10,6 +10,7 @@ enum SidebarItem: Hashable {
 
 struct ContentView: View {
     @State private var selection: SidebarItem? = .all
+    @State private var showingAISettings = false
 
     var body: some View {
         NavigationSplitView {
@@ -36,6 +37,18 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Toolbelt")
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        showingAISettings = true
+                    } label: {
+                        Label("AI Settings", systemImage: "gearshape")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAISettings) {
+                AISettingsView()
+            }
         } detail: {
             NavigationStack {
                 switch selection ?? .all {
