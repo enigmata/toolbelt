@@ -7,6 +7,12 @@ struct ToolbeltApp: App {
 
     init() {
         let schema = Schema([Tool.self, ToolType.self, ToolPhoto.self])
+        if ProcessInfo.processInfo.arguments.contains("-uiTesting") {
+            let inMemory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            container = try! ModelContainer(for: schema, configurations: [inMemory])
+            SeedData.seedIfNeeded(context: container.mainContext)
+            return
+        }
         do {
             let cloud = ModelConfiguration(
                 schema: schema,

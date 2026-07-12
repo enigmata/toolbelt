@@ -1,15 +1,6 @@
 import SwiftUI
 import SwiftData
 
-enum SortOption: String, CaseIterable, Identifiable {
-    case type = "Type"
-    case name = "Name"
-    case brand = "Brand"
-    case purchaseDate = "Purchase Date"
-
-    var id: String { rawValue }
-}
-
 struct ToolListView: View {
     let title: String
     let kind: ToolKind?
@@ -28,32 +19,11 @@ struct ToolListView: View {
     }
 
     private var filtered: [Tool] {
-        tools.filter { tool in
-            tool.disposition == disposition
-                && (kind == nil || tool.kind == kind)
-                && tool.matches(searchText)
-        }
+        ToolQuerying.filter(tools, kind: kind, disposition: disposition, searchText: searchText)
     }
 
-    private var sorted: [Tool] {
-        switch sortOption {
-        case .type:
-            filtered.sorted { ($0.type?.path ?? "", $0.name) < ($1.type?.path ?? "", $1.name) }
-        case .name:
-            filtered.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        case .brand:
-            filtered.sorted { ($0.brand, $0.name) < ($1.brand, $1.name) }
-        case .purchaseDate:
-            filtered.sorted { ($0.purchaseDate ?? .distantPast) > ($1.purchaseDate ?? .distantPast) }
-        }
-    }
-
-    /// Grouped by top-level type when sorting by type; single flat group otherwise.
     private var groups: [(key: String, tools: [Tool])] {
-        guard sortOption == .type else { return [("", sorted)] }
-        return Dictionary(grouping: sorted) { $0.type?.root.name ?? "Uncategorized" }
-            .sorted { $0.key < $1.key }
-            .map { (key: $0.key, tools: $0.value) }
+        ToolQuerying.group(ToolQuerying.sort(filtered, by: sortOption), by: sortOption)
     }
 
     var body: some View {

@@ -14,9 +14,15 @@ xcodebuild -project toolbelt.xcodeproj -scheme toolbelt -destination 'generic/pl
 
 # Build for iOS Simulator
 xcodebuild -project toolbelt.xcodeproj -scheme toolbelt -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO build
+
+# Unit tests (Swift Testing, toolbeltTests target)
+xcodebuild test -project toolbelt.xcodeproj -scheme toolbelt -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:toolbeltTests
+
+# UI tests (XCUITest, toolbeltUITests target; app launches with -uiTesting → in-memory store)
+xcodebuild test -project toolbelt.xcodeproj -scheme toolbelt -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:toolbeltUITests
 ```
 
-There are no tests yet. `CODE_SIGNING_ALLOWED=NO` avoids needing a signing team for CLI builds.
+`CODE_SIGNING_ALLOWED=NO` avoids needing a signing team for CLI builds. CI runs both test suites via `.github/workflows/ci.yml`. Note: SwiftData test helpers must keep the `ModelContainer` alive for the test body — returning only `mainContext` lets the store deallocate and crash.
 
 ## Architecture
 

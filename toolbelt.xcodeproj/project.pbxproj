@@ -6,16 +6,51 @@
 	objectVersion = 70;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		7B1234000000000000000018 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7B1234000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7B1234000000000000000006;
+			remoteInfo = toolbelt;
+		};
+		7B1234000000000000000023 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7B1234000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7B1234000000000000000006;
+			remoteInfo = toolbelt;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		7B1234000000000000000005 /* toolbelt.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = toolbelt.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B1234000000000000000010 /* toolbeltTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = toolbeltTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B123400000000000000001B /* toolbeltUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = toolbeltUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7B1234000000000000000004 /* toolbelt */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = toolbelt; sourceTree = "<group>"; };
+		7B1234000000000000000011 /* toolbeltTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = toolbeltTests; sourceTree = "<group>"; };
+		7B123400000000000000001C /* toolbeltUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = toolbeltUITests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		7B1234000000000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7B1234000000000000000015 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7B1234000000000000000020 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -29,6 +64,8 @@
 			isa = PBXGroup;
 			children = (
 				7B1234000000000000000004 /* toolbelt */,
+				7B1234000000000000000011 /* toolbeltTests */,
+				7B123400000000000000001C /* toolbeltUITests */,
 				7B1234000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -37,6 +74,8 @@
 			isa = PBXGroup;
 			children = (
 				7B1234000000000000000005 /* toolbelt.app */,
+				7B1234000000000000000010 /* toolbeltTests.xctest */,
+				7B123400000000000000001B /* toolbeltUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -66,6 +105,52 @@
 			productReference = 7B1234000000000000000005 /* toolbelt.app */;
 			productType = "com.apple.product-type.application";
 		};
+		7B1234000000000000000012 /* toolbeltTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7B1234000000000000000013 /* Build configuration list for PBXNativeTarget "toolbeltTests" */;
+			buildPhases = (
+				7B1234000000000000000014 /* Sources */,
+				7B1234000000000000000015 /* Frameworks */,
+				7B1234000000000000000016 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7B1234000000000000000017 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				7B1234000000000000000011 /* toolbeltTests */,
+			);
+			name = toolbeltTests;
+			packageProductDependencies = (
+			);
+			productName = toolbeltTests;
+			productReference = 7B1234000000000000000010 /* toolbeltTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		7B123400000000000000001D /* toolbeltUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7B123400000000000000001E /* Build configuration list for PBXNativeTarget "toolbeltUITests" */;
+			buildPhases = (
+				7B123400000000000000001F /* Sources */,
+				7B1234000000000000000020 /* Frameworks */,
+				7B1234000000000000000021 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7B1234000000000000000022 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				7B123400000000000000001C /* toolbeltUITests */,
+			);
+			name = toolbeltUITests;
+			packageProductDependencies = (
+			);
+			productName = toolbeltUITests;
+			productReference = 7B123400000000000000001B /* toolbeltUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -78,6 +163,14 @@
 				TargetAttributes = {
 					7B1234000000000000000006 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					7B1234000000000000000012 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 7B1234000000000000000006;
+					};
+					7B123400000000000000001D = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 7B1234000000000000000006;
 					};
 				};
 			};
@@ -96,12 +189,28 @@
 			projectRoot = "";
 			targets = (
 				7B1234000000000000000006 /* toolbelt */,
+				7B1234000000000000000012 /* toolbeltTests */,
+				7B123400000000000000001D /* toolbeltUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		7B1234000000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7B1234000000000000000016 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7B1234000000000000000021 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -118,7 +227,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7B1234000000000000000014 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7B123400000000000000001F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7B1234000000000000000017 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7B1234000000000000000006 /* toolbelt */;
+			targetProxy = 7B1234000000000000000018 /* PBXContainerItemProxy */;
+		};
+		7B1234000000000000000022 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7B1234000000000000000006 /* toolbelt */;
+			targetProxy = 7B1234000000000000000023 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7B123400000000000000000C /* Debug */ = {
@@ -258,6 +394,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Toolbelt uses the camera to photograph your tools and scan barcodes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -288,6 +425,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Toolbelt uses the camera to photograph your tools and scan barcodes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -300,6 +438,82 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7B1234000000000000000019 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2ZWSS7938;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.enigmata.toolbeltTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/toolbelt.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/toolbelt";
+			};
+			name = Debug;
+		};
+		7B123400000000000000001A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2ZWSS7938;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.enigmata.toolbeltTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/toolbelt.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/toolbelt";
+			};
+			name = Release;
+		};
+		7B1234000000000000000024 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2ZWSS7938;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.enigmata.toolbeltUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = toolbelt;
+			};
+			name = Debug;
+		};
+		7B1234000000000000000025 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N2ZWSS7938;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.enigmata.toolbeltUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = toolbelt;
 			};
 			name = Release;
 		};
@@ -320,6 +534,24 @@
 			buildConfigurations = (
 				7B123400000000000000000E /* Debug */,
 				7B123400000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7B1234000000000000000013 /* Build configuration list for PBXNativeTarget "toolbeltTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B1234000000000000000019 /* Debug */,
+				7B123400000000000000001A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7B123400000000000000001E /* Build configuration list for PBXNativeTarget "toolbeltUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B1234000000000000000024 /* Debug */,
+				7B1234000000000000000025 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

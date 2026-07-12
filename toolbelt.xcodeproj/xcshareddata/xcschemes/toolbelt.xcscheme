@@ -29,6 +29,28 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "7B1234000000000000000012"
+               BuildableName = "toolbeltTests.xctest"
+               BlueprintName = "toolbeltTests"
+               ReferencedContainer = "container:toolbelt.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "7B123400000000000000001D"
+               BuildableName = "toolbeltUITests.xctest"
+               BlueprintName = "toolbeltUITests"
+               ReferencedContainer = "container:toolbelt.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
