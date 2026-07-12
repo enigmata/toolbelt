@@ -9,31 +9,31 @@ Early scaffold. `Specifications.md` defines the product requirements — read it
 ## Commands
 
 ```sh
-# Build for macOS
-xcodebuild -project toolbelt.xcodeproj -scheme toolbelt -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO build
-
 # Build for iOS (generic device; use a simulator destination when CoreSimulator works)
 xcodebuild -project toolbelt.xcodeproj -scheme toolbelt -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+
+# Build for iOS Simulator
+xcodebuild -project toolbelt.xcodeproj -scheme toolbelt -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO build
 ```
 
 There are no tests yet. `CODE_SIGNING_ALLOWED=NO` avoids needing a signing team for CLI builds.
 
 ## Architecture
 
-Single multiplatform target (iOS + macOS, deployment target 26.0), SwiftUI + SwiftData, Swift 6 with default MainActor isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`).
+Single iOS-only target (iPhone + iPad, deployment target iOS 26.0), SwiftUI + SwiftData, Swift 6 with default MainActor isolation (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`).
 
 - `Models/` — SwiftData `@Model` classes. `ToolType` is a self-referential tree giving the taxonomy arbitrary depth (kind → type → subtype → size). `Tool` holds all attributes plus raw-string-backed enum accessors (`disposition`, `powerSource`). `ToolPhoto` stores image bytes with `.externalStorage`. All model properties are optional or defaulted deliberately: that keeps the schema CloudKit-compatible for the planned sync (CloudKit entitlements not yet added — requires a dev team).
 - `Data/SeedData.swift` — default taxonomy inserted once into an empty store, at app launch from `toolbeltApp.init`.
-- `Views/` — `ContentView` (NavigationSplitView sidebar: all/power/hand/sold/retired/stats) → `ToolListView` (search, grouped-by-category, persisted sort default via `@AppStorage`) → `ToolDetailView`; `ToolFormView` is the shared add/edit sheet; `PhotoImage` bridges UIImage/NSImage.
+- `Views/` — `ContentView` (NavigationSplitView sidebar: all/power/hand/sold/retired/stats) → `ToolListView` (search, grouped-by-category, persisted sort default via `@AppStorage`) → `ToolDetailView`; `ToolFormView` is the shared add/edit sheet; `PhotoImage` renders stored image data.
 - Filtering/search runs in memory over `@Query` results, not in `#Predicate` — fine at personal-inventory scale; revisit if that assumption changes.
 
-Cross-platform rules: no UIKit-only toolbar placements (`.navigationBarTrailing`), no `EditButton`, no `.tabViewStyle(.page)`; use `.primaryAction`, context menus, and `formStyle(.grouped)`.
+The app is iOS-only: UIKit-backed APIs (`EditButton`, `.tabViewStyle(.page)`, UIViewControllerRepresentable wrappers) are fine. Schema changes must stay CloudKit-safe: properties optional or defaulted, no `#Unique`, relationships optional.
 
 Remaining and suggested work is tracked in `TODO.md` — check it before starting a feature, and check items off as they land.
 
 ## What Is Being Built
 
-"toolbelt" — a personal inventory app for power tools and hand tools, targeting iOS and macOS (latest OS versions only), using the latest strategic, long-term-supported Apple APIs and frameworks (i.e., SwiftUI and modern Swift).
+"toolbelt" — a personal inventory app for power tools and hand tools, targeting iOS (latest OS version only), using the latest strategic, long-term-supported Apple APIs and frameworks (i.e., SwiftUI and modern Swift).
 
 Key requirements from `Specifications.md` that shape the architecture:
 

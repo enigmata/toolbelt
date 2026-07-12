@@ -143,9 +143,6 @@ struct ToolFormView: View {
                 await loadPickedPhotos()
             }
         }
-        #if os(macOS)
-        .frame(minWidth: 480, minHeight: 560)
-        #endif
     }
 
     private func loadPickedPhotos() async {

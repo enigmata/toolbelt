@@ -1,25 +1,18 @@
 import SwiftUI
+import UIKit
 
-/// Renders image data on both iOS (UIImage) and macOS (NSImage).
+/// Renders stored image data, falling back to a placeholder symbol.
 struct PhotoImage: View {
     let data: Data
 
     var body: some View {
-        if let image = platformImage {
-            image
+        if let image = UIImage(data: data) {
+            Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
         } else {
             Image(systemName: "photo")
                 .foregroundStyle(.secondary)
         }
-    }
-
-    private var platformImage: Image? {
-        #if canImport(UIKit)
-        UIImage(data: data).map(Image.init(uiImage:))
-        #elseif canImport(AppKit)
-        NSImage(data: data).map(Image.init(nsImage:))
-        #endif
     }
 }
