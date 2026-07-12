@@ -6,6 +6,7 @@ enum SidebarItem: Hashable {
     case disposition(Disposition)
     case stats
     case taxonomy
+    case identify
 }
 
 struct ContentView: View {
@@ -30,6 +31,8 @@ struct ContentView: View {
                         .tag(SidebarItem.disposition(.retired))
                 }
                 Section {
+                    Label("Identify by Photo", systemImage: "camera.viewfinder")
+                        .tag(SidebarItem.identify)
                     Label("Statistics", systemImage: "chart.bar")
                         .tag(SidebarItem.stats)
                     Label("Taxonomy", systemImage: "list.bullet.indent")
@@ -62,6 +65,8 @@ struct ContentView: View {
                     StatsView()
                 case .taxonomy:
                     TaxonomyEditorView()
+                case .identify:
+                    IdentifyToolView()
                 }
             }
         }
