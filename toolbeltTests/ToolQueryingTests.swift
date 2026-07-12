@@ -48,9 +48,23 @@ struct ToolQueryingTests {
         #expect(sorted.map(\.brand) == ["Makita", "Narex", "Ryobi"])
     }
 
-    @Test func sortByPurchaseDateNewestFirstWithUnknownLast() {
-        let sorted = ToolQuerying.sort(sampleTools(), by: .purchaseDate)
+    @Test func sortByPurchaseDateDescendingPutsNewestFirstUnknownLast() {
+        let sorted = ToolQuerying.sort(sampleTools(), by: .purchaseDate, ascending: false)
         #expect(sorted.map(\.name) == ["Bench Chisel", "Hammer Drill", "Old Saw"])
+    }
+
+    @Test func sortAscendingToggleReverses() {
+        let ascending = ToolQuerying.sort(sampleTools(), by: .name, ascending: true)
+        let descending = ToolQuerying.sort(sampleTools(), by: .name, ascending: false)
+        #expect(ascending.map(\.name) == descending.map(\.name).reversed())
+    }
+
+    @Test func sortByBatteryVoltageUnknownFirstAscending() {
+        let tools = sampleTools()
+        tools[0].powerSource = .battery
+        tools[0].batteryVoltage = 18
+        let sorted = ToolQuerying.sort(tools, by: .batteryVoltage)
+        #expect(sorted.last?.name == "Hammer Drill")
     }
 
     @Test func groupByTypeUsesRootNameAndUncategorized() {

@@ -5,6 +5,7 @@ enum SidebarItem: Hashable {
     case kind(ToolKind)
     case disposition(Disposition)
     case stats
+    case taxonomy
 }
 
 struct ContentView: View {
@@ -30,6 +31,8 @@ struct ContentView: View {
                 Section {
                     Label("Statistics", systemImage: "chart.bar")
                         .tag(SidebarItem.stats)
+                    Label("Taxonomy", systemImage: "list.bullet.indent")
+                        .tag(SidebarItem.taxonomy)
                 }
             }
             .navigationTitle("Toolbelt")
@@ -44,6 +47,8 @@ struct ContentView: View {
                     ToolListView(title: disposition.rawValue, kind: nil, disposition: disposition)
                 case .stats:
                     StatsView()
+                case .taxonomy:
+                    TaxonomyEditorView()
                 }
             }
         }

@@ -11,8 +11,12 @@ struct ToolListView: View {
     @State private var searchText = ""
     @State private var showingAddSheet = false
     @State private var toolPendingDelete: Tool?
+    @State private var selection = Set<PersistentIdentifier>()
+    @State private var showingBulkDeleteConfirmation = false
+    @State private var editMode: EditMode = .inactive
     // Spec: any sort order can be saved as the default, so persist it.
     @AppStorage("defaultSortOption") private var sortRaw = SortOption.type.rawValue
+    @AppStorage("sortAscending") private var sortAscending = true
 
     private var sortOption: SortOption {
         SortOption(rawValue: sortRaw) ?? .type
@@ -23,11 +27,18 @@ struct ToolListView: View {
     }
 
     private var groups: [(key: String, tools: [Tool])] {
-        ToolQuerying.group(ToolQuerying.sort(filtered, by: sortOption), by: sortOption)
+        ToolQuerying.group(
+            ToolQuerying.sort(filtered, by: sortOption, ascending: sortAscending),
+            by: sortOption
+        )
+    }
+
+    private var selectedTools: [Tool] {
+        filtered.filter { selection.contains($0.persistentModelID) }
     }
 
     var body: some View {
-        List {
+        List(selection: $selection) {
             if !filtered.isEmpty {
                 summarySection
             }
@@ -37,6 +48,7 @@ struct ToolListView: View {
                         NavigationLink(value: tool) {
                             ToolRowView(tool: tool)
                         }
+                        .tag(tool.persistentModelID)
                         .contextMenu { contextMenu(for: tool) }
                     }
                 }
@@ -63,7 +75,16 @@ struct ToolListView: View {
             ToolbarItem {
                 sortMenu
             }
+            ToolbarItem {
+                EditButton()
+            }
+            if editMode == .active && !selection.isEmpty {
+                ToolbarItem(placement: .bottomBar) {
+                    bulkActionMenu
+                }
+            }
         }
+        .environment(\.editMode, $editMode)
         .sheet(isPresented: $showingAddSheet) {
             ToolFormView()
         }
@@ -103,8 +124,52 @@ struct ToolListView: View {
                     Text(option.rawValue).tag(option.rawValue)
                 }
             }
+            Divider()
+            Picker("Order", selection: $sortAscending) {
+                Label("Ascending", systemImage: "arrow.up").tag(true)
+                Label("Descending", systemImage: "arrow.down").tag(false)
+            }
         } label: {
             Label("Sort", systemImage: "arrow.up.arrow.down")
+        }
+    }
+
+    private var bulkActionMenu: some View {
+        Menu {
+            ForEach(Disposition.allCases) { disposition in
+                Button {
+                    for tool in selectedTools {
+                        tool.disposition = disposition
+                    }
+                    selection.removeAll()
+                    editMode = .inactive
+                } label: {
+                    Label("Mark \(disposition.rawValue)", systemImage: disposition.systemImage)
+                }
+            }
+            Divider()
+            Button(role: .destructive) {
+                showingBulkDeleteConfirmation = true
+            } label: {
+                Label("Delete…", systemImage: "trash")
+            }
+        } label: {
+            Label("Actions on \(selection.count) Selected", systemImage: "ellipsis.circle")
+        }
+        .confirmationDialog(
+            "Delete \(selection.count) Tools?",
+            isPresented: $showingBulkDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                for tool in selectedTools {
+                    context.delete(tool)
+                }
+                selection.removeAll()
+                editMode = .inactive
+            }
+        } message: {
+            Text("This permanently removes the selected tools and their photos.")
         }
     }
 
