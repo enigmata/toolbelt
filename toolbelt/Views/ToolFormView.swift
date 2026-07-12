@@ -28,6 +28,8 @@ struct ToolFormView: View {
     @State private var notes: String
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var newPhotoData: [Data] = []
+    @State private var photosToDelete: [ToolPhoto] = []
+    @State private var showingCamera = false
 
     init(tool: Tool? = nil) {
         self.tool = tool
@@ -107,21 +109,23 @@ struct ToolFormView: View {
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 6, matching: .images) {
                         Label("Add Photos", systemImage: "photo.badge.plus")
                     }
-                    if !newPhotoData.isEmpty {
+                    Button {
+                        showingCamera = true
+                    } label: {
+                        Label("Take Photo", systemImage: "camera")
+                    }
+                    if !remainingPhotos.isEmpty || !newPhotoData.isEmpty {
                         ScrollView(.horizontal) {
                             HStack {
+                                ForEach(remainingPhotos) { photo in
+                                    photoThumbnail(data: photo.data) {
+                                        photosToDelete.append(photo)
+                                    }
+                                }
                                 ForEach(Array(newPhotoData.enumerated()), id: \.offset) { index, data in
-                                    PhotoImage(data: data)
-                                        .frame(width: 72, height: 72)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                                        .overlay(alignment: .topTrailing) {
-                                            Button {
-                                                newPhotoData.remove(at: index)
-                                            } label: {
-                                                Image(systemName: "xmark.circle.fill")
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
+                                    photoThumbnail(data: data) {
+                                        newPhotoData.remove(at: index)
+                                    }
                                 }
                             }
                         }
@@ -142,7 +146,32 @@ struct ToolFormView: View {
             .task(id: pickerItems) {
                 await loadPickedPhotos()
             }
+            .fullScreenCover(isPresented: $showingCamera) {
+                CameraCaptureView { data in
+                    newPhotoData.append(data)
+                }
+            }
         }
+    }
+
+    /// Existing photos minus those marked for removal; deletion is deferred
+    /// to save() so Cancel is non-destructive.
+    private var remainingPhotos: [ToolPhoto] {
+        (tool?.photos ?? [])
+            .filter { photo in !photosToDelete.contains { $0 === photo } }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func photoThumbnail(data: Data, onRemove: @escaping () -> Void) -> some View {
+        PhotoImage(data: data)
+            .frame(width: 72, height: 72)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(alignment: .topTrailing) {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+            }
     }
 
     private func loadPickedPhotos() async {
@@ -174,6 +203,9 @@ struct ToolFormView: View {
         target.notes = notes
         if tool == nil {
             context.insert(target)
+        }
+        for photo in photosToDelete {
+            context.delete(photo)
         }
         for data in newPhotoData {
             let photo = ToolPhoto(data: data)
