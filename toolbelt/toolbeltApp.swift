@@ -7,7 +7,12 @@ struct ToolbeltApp: App {
 
     init() {
         let schema = Schema([Tool.self, ToolType.self, ToolPhoto.self])
-        if ProcessInfo.processInfo.arguments.contains("-uiTesting") {
+        // Unit tests use the app as their test host; without this check the
+        // launch below would take the CloudKit path, which kills the process
+        // on CI (no iCloud entitlement) before the test bundle connects.
+        let isTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
+        if isTestHost || ProcessInfo.processInfo.arguments.contains("-uiTesting") {
             let inMemory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             container = try! ModelContainer(for: schema, configurations: [inMemory])
             SeedData.seedIfNeeded(context: container.mainContext)
