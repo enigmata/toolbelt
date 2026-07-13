@@ -54,22 +54,31 @@ enum SeedData {
     /// than empty-store-only) so a device that launches before its first
     /// CloudKit import doesn't recreate the whole taxonomy, and merges
     /// duplicate roots left behind when two offline devices both seeded.
+    private static func rootKey(kindRaw: String, name: String) -> String {
+        kindRaw + "|" + name
+    }
+
     static func seedIfNeeded(context: ModelContext) {
         dedupeRootTypes(context: context)
 
-        let all = (try? context.fetch(FetchDescriptor<ToolType>())) ?? []
-        let existingRoots = Set(
-            all.filter { $0.parent == nil }.map { "\($0.kindRaw)|\($0.name)" }
-        )
+        let all: [ToolType] = (try? context.fetch(FetchDescriptor<ToolType>())) ?? []
+        let roots: [ToolType] = all.filter { $0.parent == nil }
+        let existingRoots: Set<String> = Set(roots.map { rootKey(kindRaw: $0.kindRaw, name: $0.name) })
 
         var inserted = false
-        for spec in powerTypes where !existingRoots.contains("\(ToolKind.power.rawValue)|\(spec.name)") {
-            insert(spec, kind: .power, parent: nil, context: context)
-            inserted = true
+        for spec in powerTypes {
+            let key = rootKey(kindRaw: ToolKind.power.rawValue, name: spec.name)
+            if !existingRoots.contains(key) {
+                insert(spec, kind: .power, parent: nil, context: context)
+                inserted = true
+            }
         }
-        for spec in handTypes where !existingRoots.contains("\(ToolKind.hand.rawValue)|\(spec.name)") {
-            insert(spec, kind: .hand, parent: nil, context: context)
-            inserted = true
+        for spec in handTypes {
+            let key = rootKey(kindRaw: ToolKind.hand.rawValue, name: spec.name)
+            if !existingRoots.contains(key) {
+                insert(spec, kind: .hand, parent: nil, context: context)
+                inserted = true
+            }
         }
         if inserted {
             try? context.save()
@@ -79,17 +88,23 @@ enum SeedData {
     /// Merges duplicate root types with the same kind and name: the root with
     /// the most descendants survives; the others' children and tools are
     /// re-parented onto it before deletion.
+    /// Children + tools count, used to pick the survivor when merging.
+    private static func descendantWeight(_ type: ToolType) -> Int {
+        let childCount: Int = type.children?.count ?? 0
+        let toolCount: Int = type.tools?.count ?? 0
+        return childCount + toolCount
+    }
+
     static func dedupeRootTypes(context: ModelContext) {
-        let all = (try? context.fetch(FetchDescriptor<ToolType>())) ?? []
-        let roots = all.filter { $0.parent == nil }
-        let grouped = Dictionary(grouping: roots) { "\($0.kindRaw)|\($0.name)" }
+        let all: [ToolType] = (try? context.fetch(FetchDescriptor<ToolType>())) ?? []
+        let roots: [ToolType] = all.filter { $0.parent == nil }
+        let grouped: [String: [ToolType]] = Dictionary(grouping: roots) {
+            rootKey(kindRaw: $0.kindRaw, name: $0.name)
+        }
 
         var merged = false
         for (_, duplicates) in grouped where duplicates.count > 1 {
-            let ranked = duplicates.sorted {
-                (($0.children?.count ?? 0) + ($0.tools?.count ?? 0))
-                    > (($1.children?.count ?? 0) + ($1.tools?.count ?? 0))
-            }
+            let ranked = duplicates.sorted { descendantWeight($0) > descendantWeight($1) }
             let keeper = ranked[0]
             for loser in ranked.dropFirst() {
                 for child in loser.children ?? [] {

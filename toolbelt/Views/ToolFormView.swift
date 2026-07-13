@@ -60,8 +60,11 @@ struct ToolFormView: View {
     }
 
     private var sortedTypes: [ToolType] {
-        allTypes.sorted {
-            ($0.kind.rawValue, $0.path) < ($1.kind.rawValue, $1.path)
+        allTypes.sorted { (a: ToolType, b: ToolType) -> Bool in
+            let kindA: String = a.kind.rawValue
+            let kindB: String = b.kind.rawValue
+            if kindA != kindB { return kindA < kindB }
+            return a.path < b.path
         }
     }
 

@@ -24,39 +24,89 @@ enum ToolQuerying {
         disposition: Disposition,
         searchText: String
     ) -> [Tool] {
-        tools.filter { tool in
-            tool.disposition == disposition
-                && (kind == nil || tool.kind == kind)
-                && tool.matches(searchText)
+        tools.filter { (tool: Tool) -> Bool in
+            guard tool.disposition == disposition else { return false }
+            if let kind, tool.kind != kind { return false }
+            return tool.matches(searchText)
         }
     }
 
     /// Natural order is ascending per attribute (unknown values sort first);
-    /// pass ascending: false to reverse.
+    /// pass ascending: false to reverse. Comparators are explicit functions
+    /// so slower compilers don't time out type-checking tuple closures.
     static func sort(_ tools: [Tool], by option: SortOption, ascending: Bool = true) -> [Tool] {
-        let sorted: [Tool] = switch option {
-        case .type:
-            tools.sorted { ($0.type?.path ?? "", $0.name) < ($1.type?.path ?? "", $1.name) }
-        case .name:
-            tools.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        case .brand:
-            tools.sorted { ($0.brand, $0.name) < ($1.brand, $1.name) }
-        case .purchaseDate:
-            tools.sorted { ($0.purchaseDate ?? .distantPast, $0.name) < ($1.purchaseDate ?? .distantPast, $1.name) }
-        case .createdAt:
-            tools.sorted { ($0.createdAt, $0.name) < ($1.createdAt, $1.name) }
-        case .storageLocation:
-            tools.sorted { ($0.storageLocation, $0.name) < ($1.storageLocation, $1.name) }
-        case .purchaseStore:
-            tools.sorted { ($0.purchaseStore, $0.name) < ($1.purchaseStore, $1.name) }
-        case .disposition:
-            tools.sorted { ($0.dispositionRaw, $0.name) < ($1.dispositionRaw, $1.name) }
-        case .powerSource:
-            tools.sorted { ($0.powerSourceRaw ?? "", $0.name) < ($1.powerSourceRaw ?? "", $1.name) }
-        case .batteryVoltage:
-            tools.sorted { ($0.batteryVoltage ?? Int.min, $0.name) < ($1.batteryVoltage ?? Int.min, $1.name) }
+        let comparator: (Tool, Tool) -> Bool
+        switch option {
+        case .type: comparator = byType
+        case .name: comparator = byName
+        case .brand: comparator = byBrand
+        case .purchaseDate: comparator = byPurchaseDate
+        case .createdAt: comparator = byCreatedAt
+        case .storageLocation: comparator = byStorageLocation
+        case .purchaseStore: comparator = byPurchaseStore
+        case .disposition: comparator = byDisposition
+        case .powerSource: comparator = byPowerSource
+        case .batteryVoltage: comparator = byBatteryVoltage
         }
+        let sorted = tools.sorted(by: comparator)
         return ascending ? sorted : sorted.reversed()
+    }
+
+    private static func byType(_ a: Tool, _ b: Tool) -> Bool {
+        let pathA: String = a.type?.path ?? ""
+        let pathB: String = b.type?.path ?? ""
+        if pathA != pathB { return pathA < pathB }
+        return a.name < b.name
+    }
+
+    private static func byName(_ a: Tool, _ b: Tool) -> Bool {
+        a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+    }
+
+    private static func byBrand(_ a: Tool, _ b: Tool) -> Bool {
+        if a.brand != b.brand { return a.brand < b.brand }
+        return a.name < b.name
+    }
+
+    private static func byPurchaseDate(_ a: Tool, _ b: Tool) -> Bool {
+        let dateA: Date = a.purchaseDate ?? .distantPast
+        let dateB: Date = b.purchaseDate ?? .distantPast
+        if dateA != dateB { return dateA < dateB }
+        return a.name < b.name
+    }
+
+    private static func byCreatedAt(_ a: Tool, _ b: Tool) -> Bool {
+        if a.createdAt != b.createdAt { return a.createdAt < b.createdAt }
+        return a.name < b.name
+    }
+
+    private static func byStorageLocation(_ a: Tool, _ b: Tool) -> Bool {
+        if a.storageLocation != b.storageLocation { return a.storageLocation < b.storageLocation }
+        return a.name < b.name
+    }
+
+    private static func byPurchaseStore(_ a: Tool, _ b: Tool) -> Bool {
+        if a.purchaseStore != b.purchaseStore { return a.purchaseStore < b.purchaseStore }
+        return a.name < b.name
+    }
+
+    private static func byDisposition(_ a: Tool, _ b: Tool) -> Bool {
+        if a.dispositionRaw != b.dispositionRaw { return a.dispositionRaw < b.dispositionRaw }
+        return a.name < b.name
+    }
+
+    private static func byPowerSource(_ a: Tool, _ b: Tool) -> Bool {
+        let sourceA: String = a.powerSourceRaw ?? ""
+        let sourceB: String = b.powerSourceRaw ?? ""
+        if sourceA != sourceB { return sourceA < sourceB }
+        return a.name < b.name
+    }
+
+    private static func byBatteryVoltage(_ a: Tool, _ b: Tool) -> Bool {
+        let voltsA: Int = a.batteryVoltage ?? .min
+        let voltsB: Int = b.batteryVoltage ?? .min
+        if voltsA != voltsB { return voltsA < voltsB }
+        return a.name < b.name
     }
 
     /// Grouped by top-level type when sorting by type; single flat group otherwise.
