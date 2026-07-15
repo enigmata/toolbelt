@@ -56,57 +56,57 @@ enum ToolQuerying {
         let pathA: String = a.type?.path ?? ""
         let pathB: String = b.type?.path ?? ""
         if pathA != pathB { return pathA < pathB }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byName(_ a: Tool, _ b: Tool) -> Bool {
-        a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
     }
 
     private static func byBrand(_ a: Tool, _ b: Tool) -> Bool {
         if a.brand != b.brand { return a.brand < b.brand }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byPurchaseDate(_ a: Tool, _ b: Tool) -> Bool {
         let dateA: Date = a.purchaseDate ?? .distantPast
         let dateB: Date = b.purchaseDate ?? .distantPast
         if dateA != dateB { return dateA < dateB }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byCreatedAt(_ a: Tool, _ b: Tool) -> Bool {
         if a.createdAt != b.createdAt { return a.createdAt < b.createdAt }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byStorageLocation(_ a: Tool, _ b: Tool) -> Bool {
         if a.storageLocation != b.storageLocation { return a.storageLocation < b.storageLocation }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byPurchaseStore(_ a: Tool, _ b: Tool) -> Bool {
         if a.purchaseStore != b.purchaseStore { return a.purchaseStore < b.purchaseStore }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byDisposition(_ a: Tool, _ b: Tool) -> Bool {
         if a.dispositionRaw != b.dispositionRaw { return a.dispositionRaw < b.dispositionRaw }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byPowerSource(_ a: Tool, _ b: Tool) -> Bool {
         let sourceA: String = a.powerSourceRaw ?? ""
         let sourceB: String = b.powerSourceRaw ?? ""
         if sourceA != sourceB { return sourceA < sourceB }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     private static func byBatteryVoltage(_ a: Tool, _ b: Tool) -> Bool {
         let voltsA: Int = a.batteryVoltage ?? .min
         let voltsB: Int = b.batteryVoltage ?? .min
         if voltsA != voltsB { return voltsA < voltsB }
-        return a.name < b.name
+        return a.displayName < b.displayName
     }
 
     /// Grouped by top-level type when sorting by type; single flat group otherwise.

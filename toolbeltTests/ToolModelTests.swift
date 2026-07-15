@@ -33,6 +33,39 @@ struct ToolModelTests {
         #expect(tool.powerSourceRaw == PowerSource.battery.rawValue)
     }
 
+    // MARK: Display name
+
+    @Test func displayNameJoinsBrandAndModelName() {
+        let tool = Tool()
+        tool.brand = "Festool"
+        tool.modelName = "OSC 18"
+        tool.modelNumber = "10041861"
+        #expect(tool.displayName == "Festool OSC 18")
+        tool.modelName = ""
+        tool.modelNumber = ""
+        #expect(tool.displayName == "Festool")
+    }
+
+    @Test func displayNameFallsBackToModelNumberForOldRecords() {
+        let tool = Tool()
+        tool.brand = "Makita"
+        tool.modelNumber = "XDT16"
+        #expect(tool.displayName == "Makita XDT16")
+    }
+
+    @Test func displayNamePrefersLegacyName() {
+        let tool = Tool(name: "Trusty Driver")
+        tool.brand = "Makita"
+        #expect(tool.displayName == "Trusty Driver")
+    }
+
+    @Test func displayNameFallsBackToTypeThenPlaceholder() {
+        let type = ToolType(name: "Drill", kind: .power)
+        let tool = Tool(type: type)
+        #expect(tool.displayName == "Drill")
+        #expect(Tool().displayName == "Untitled Tool")
+    }
+
     // MARK: Battery label
 
     @Test func batteryLabelNilForCordedAndUnknown() {

@@ -5,6 +5,9 @@ import Foundation
 struct ToolDetailsSuggestion: Codable, Equatable, Sendable {
     var name: String?
     var brand: String?
+    /// Marketed model designation, e.g. "XDT17" or "OSC 18".
+    var modelName: String?
+    /// Manufacturer article/part number, e.g. "10041861".
     var modelNumber: String?
     /// Taxonomy path guess like "Drill › SDS Plus" — mapped to an existing
     /// ToolType by the UI; ignored when nothing matches.
@@ -40,6 +43,7 @@ struct CompanionSuggestion: Codable, Equatable, Sendable, Hashable {
 struct ToolSnapshot: Codable, Equatable, Sendable {
     var name: String
     var brand: String
+    var modelName: String
     var modelNumber: String
     var typePath: String?
     var powerSource: String?
@@ -48,8 +52,11 @@ struct ToolSnapshot: Codable, Equatable, Sendable {
     var notes: String
 
     init(tool: Tool) {
-        name = tool.name
+        // displayName, not the legacy name field, so prompts always have a
+        // meaningful title for the tool.
+        name = tool.displayName
         brand = tool.brand
+        modelName = tool.modelName
         modelNumber = tool.modelNumber
         typePath = tool.type?.path
         powerSource = tool.powerSource?.rawValue
@@ -58,12 +65,13 @@ struct ToolSnapshot: Codable, Equatable, Sendable {
         notes = tool.notes
     }
 
-    init(name: String, brand: String = "", modelNumber: String = "",
-         typePath: String? = nil, powerSource: String? = nil,
-         batteryVoltage: Int? = nil, batteryAmpHours: Double? = nil,
-         notes: String = "") {
+    init(name: String, brand: String = "", modelName: String = "",
+         modelNumber: String = "", typePath: String? = nil,
+         powerSource: String? = nil, batteryVoltage: Int? = nil,
+         batteryAmpHours: Double? = nil, notes: String = "") {
         self.name = name
         self.brand = brand
+        self.modelName = modelName
         self.modelNumber = modelNumber
         self.typePath = typePath
         self.powerSource = powerSource

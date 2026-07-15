@@ -75,7 +75,8 @@ struct AIDTODecodingTests {
             {
               "name": "18V Hammer Drill",
               "brand": "Makita",
-              "modelNumber": "XPH14",
+              "modelName": "XPH14",
+              "modelNumber": null,
               "suggestedTypePath": "Drill › Hammer",
               "powerSource": "Battery",
               "batteryVoltage": 18,
@@ -87,6 +88,8 @@ struct AIDTODecodingTests {
             """
         let decoded = try JSONDecoder().decode(ToolDetailsSuggestion.self, from: Data(json.utf8))
         #expect(decoded.brand == "Makita")
+        #expect(decoded.modelName == "XPH14")
+        #expect(decoded.modelNumber == nil)
         #expect(decoded.batteryVoltage == 18)
         #expect(decoded.howToLink == nil)
     }

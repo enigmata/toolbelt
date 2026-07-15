@@ -92,7 +92,7 @@ struct ToolListView: View {
             ToolFormView()
         }
         .confirmationDialog(
-            "Delete \(toolPendingDelete?.name ?? "Tool")?",
+            "Delete \(toolPendingDelete?.displayName ?? "Tool")?",
             isPresented: Binding(
                 get: { toolPendingDelete != nil },
                 set: { if !$0 { toolPendingDelete = nil } }
@@ -233,7 +233,7 @@ struct ToolRowView: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(tool.name)
+                Text(tool.displayName)
                     .font(.headline)
                 Text(subtitle)
                     .font(.subheadline)
@@ -250,8 +250,10 @@ struct ToolRowView: View {
         }
     }
 
+    /// Skips the brand when the title (brand + model) already shows it.
     private var subtitle: String {
-        [tool.brand, tool.type?.path]
+        let brand = tool.displayName.localizedCaseInsensitiveContains(tool.brand) ? nil : tool.brand
+        return [brand, tool.type?.path]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: " · ")

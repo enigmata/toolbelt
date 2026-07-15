@@ -45,12 +45,20 @@ struct ToolDetailView: View {
             }
 
             Section("Identity") {
-                LabeledContent("Name", value: tool.name)
+                if !tool.name.isEmpty {
+                    LabeledContent("Name", value: tool.name)
+                }
                 if !tool.brand.isEmpty {
                     LabeledContent("Brand", value: tool.brand)
                 }
+                if !tool.modelName.isEmpty {
+                    LabeledContent("Model", value: tool.modelName)
+                }
                 if !tool.modelNumber.isEmpty {
-                    LabeledContent("Model", value: tool.modelNumber)
+                    LabeledContent("Model Number", value: tool.modelNumber)
+                }
+                if !tool.serialNumber.isEmpty {
+                    LabeledContent("Serial Number", value: tool.serialNumber)
                 }
                 if let type = tool.type {
                     LabeledContent("Type", value: "\(type.kind.rawValue) › \(type.path)")
@@ -107,7 +115,7 @@ struct ToolDetailView: View {
             companionsSection
         }
         .formStyle(.grouped)
-        .navigationTitle(tool.name)
+        .navigationTitle(tool.displayName)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Edit") { showingEditSheet = true }
@@ -123,7 +131,7 @@ struct ToolDetailView: View {
             PhotoGalleryView(photos: sortedPhotos, initialIndex: presentation.index)
         }
         .confirmationDialog(
-            "Delete \(tool.name)?",
+            "Delete \(tool.displayName)?",
             isPresented: $showingDeleteConfirmation,
             titleVisibility: .visible
         ) {

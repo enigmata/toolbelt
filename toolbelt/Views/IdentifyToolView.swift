@@ -62,7 +62,7 @@ struct IdentifyToolView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 6))
                                 }
                                 VStack(alignment: .leading) {
-                                    Text(match.tool.name)
+                                    Text(match.tool.displayName)
                                         .font(.headline)
                                     Text(match.confidence)
                                         .font(.caption)

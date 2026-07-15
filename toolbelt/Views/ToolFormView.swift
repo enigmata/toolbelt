@@ -12,9 +12,10 @@ struct ToolFormView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ToolType.name) private var allTypes: [ToolType]
 
-    @State private var name: String
     @State private var brand: String
+    @State private var modelName: String
     @State private var modelNumber: String
+    @State private var serialNumber: String
     @State private var selectedType: ToolType?
     @State private var powerSource: PowerSource?
     @State private var batteryVoltage: Int?
@@ -43,9 +44,10 @@ struct ToolFormView: View {
 
     init(tool: Tool? = nil) {
         self.tool = tool
-        _name = State(initialValue: tool?.name ?? "")
         _brand = State(initialValue: tool?.brand ?? "")
+        _modelName = State(initialValue: tool?.modelName ?? "")
         _modelNumber = State(initialValue: tool?.modelNumber ?? "")
+        _serialNumber = State(initialValue: tool?.serialNumber ?? "")
         _selectedType = State(initialValue: tool?.type)
         _powerSource = State(initialValue: tool?.powerSource)
         _batteryVoltage = State(initialValue: tool?.batteryVoltage)
@@ -57,6 +59,15 @@ struct ToolFormView: View {
         _manufacturerLink = State(initialValue: tool?.manufacturerLink ?? "")
         _howToLink = State(initialValue: tool?.howToLink ?? "")
         _notes = State(initialValue: tool?.notes ?? "")
+    }
+
+    /// Brand and model name identify a tool and are mandatory; model and
+    /// serial numbers are desired but optional. Legacy records identified
+    /// only by name stay editable.
+    private var canSave: Bool {
+        let hasBrand = !brand.trimmingCharacters(in: .whitespaces).isEmpty
+        let hasModelName = !modelName.trimmingCharacters(in: .whitespaces).isEmpty
+        return (hasBrand && hasModelName) || !(tool?.name ?? "").isEmpty
     }
 
     private var sortedTypes: [ToolType] {
@@ -74,9 +85,10 @@ struct ToolFormView: View {
                 autoFillSection
 
                 Section("Identity") {
-                    TextField("Name", text: $name)
                     TextField("Brand", text: $brand)
+                    TextField("Model Name", text: $modelName)
                     TextField("Model Number", text: $modelNumber)
+                    TextField("Serial Number", text: $serialNumber)
                     Picker("Type", selection: $selectedType) {
                         Text("None").tag(ToolType?.none)
                         ForEach(sortedTypes) { type in
@@ -155,7 +167,7 @@ struct ToolFormView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: save)
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(!canSave)
                 }
             }
             .task(id: pickerItems) {
@@ -196,11 +208,11 @@ struct ToolFormView: View {
             Button {
                 Task {
                     await lookup {
-                        var suggestion = try await AIService.shared.lookupToolDetails(brand: brand, model: modelNumber)
+                        var suggestion = try await AIService.shared.lookupToolDetails(brand: brand, model: modelName)
                         // Top up missing links when the form has none yet.
                         if manufacturerLink.isEmpty, howToLink.isEmpty,
                            suggestion.manufacturerLink == nil || suggestion.howToLink == nil {
-                            if let links = try? await AIService.shared.suggestLinks(brand: brand, model: modelNumber) {
+                            if let links = try? await AIService.shared.suggestLinks(brand: brand, model: modelName) {
                                 suggestion.manufacturerLink = suggestion.manufacturerLink ?? links.manufacturerLink
                                 suggestion.howToLink = suggestion.howToLink ?? links.howToLinks?.first?.url
                             }
@@ -212,7 +224,7 @@ struct ToolFormView: View {
                 Label("Look Up Brand + Model", systemImage: "sparkle.magnifyingglass")
             }
             .disabled(brand.trimmingCharacters(in: .whitespaces).isEmpty
-                      || modelNumber.trimmingCharacters(in: .whitespaces).isEmpty)
+                      || modelName.trimmingCharacters(in: .whitespaces).isEmpty)
 
             Button {
                 showingScanner = true
@@ -294,8 +306,8 @@ struct ToolFormView: View {
                 entries.append((label, value))
             }
         }
-        add("Name", suggestion.name, ifEmpty: name)
         add("Brand", suggestion.brand, ifEmpty: brand)
+        add("Model Name", suggestion.modelName, ifEmpty: modelName)
         add("Model Number", suggestion.modelNumber, ifEmpty: modelNumber)
         if selectedType == nil, let path = suggestion.suggestedTypePath,
            matchType(forPath: path) != nil {
@@ -323,8 +335,8 @@ struct ToolFormView: View {
                 current = value
             }
         }
-        fill(&name, with: suggestion.name)
         fill(&brand, with: suggestion.brand)
+        fill(&modelName, with: suggestion.modelName)
         fill(&modelNumber, with: suggestion.modelNumber)
         if selectedType == nil, let path = suggestion.suggestedTypePath {
             selectedType = matchType(forPath: path)
@@ -390,9 +402,10 @@ struct ToolFormView: View {
 
     private func save() {
         let target = tool ?? Tool()
-        target.name = name
         target.brand = brand
+        target.modelName = modelName
         target.modelNumber = modelNumber
+        target.serialNumber = serialNumber
         target.type = selectedType
         target.powerSource = selectedType?.kind == .power ? powerSource : nil
         target.batteryVoltage = powerSource == .battery ? batteryVoltage : nil

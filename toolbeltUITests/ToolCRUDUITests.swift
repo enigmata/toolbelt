@@ -12,17 +12,25 @@ final class ToolCRUDUITests: XCTestCase {
         return app
     }
 
+    /// Fills the add form's identity fields; the list shows "brand model".
+    private func addTool(in app: XCUIApplication, brand: String, model: String) {
+        app.buttons["Add Tool"].firstMatch.tap()
+        let brandField = app.textFields["Brand"]
+        XCTAssertTrue(brandField.waitForExistence(timeout: 5))
+        brandField.tap()
+        brandField.typeText(brand)
+        let modelField = app.textFields["Model Name"]
+        modelField.tap()
+        modelField.typeText(model)
+        app.buttons["Save"].tap()
+    }
+
     @MainActor
     func testAddAndSearchTool() throws {
         let app = launchApp()
 
         // Add
-        app.buttons["Add Tool"].firstMatch.tap()
-        let nameField = app.textFields["Name"]
-        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
-        nameField.tap()
-        nameField.typeText("Test Impact Driver")
-        app.buttons["Save"].tap()
+        addTool(in: app, brand: "Test", model: "Impact Driver")
 
         let cell = app.staticTexts["Test Impact Driver"]
         XCTAssertTrue(cell.waitForExistence(timeout: 5))
@@ -41,12 +49,7 @@ final class ToolCRUDUITests: XCTestCase {
     func testDeleteToolRequiresConfirmation() throws {
         let app = launchApp()
 
-        app.buttons["Add Tool"].firstMatch.tap()
-        let nameField = app.textFields["Name"]
-        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
-        nameField.tap()
-        nameField.typeText("Doomed Grinder")
-        app.buttons["Save"].tap()
+        addTool(in: app, brand: "Doomed", model: "Grinder")
 
         let cell = app.staticTexts["Doomed Grinder"]
         XCTAssertTrue(cell.waitForExistence(timeout: 5))
@@ -66,12 +69,7 @@ final class ToolCRUDUITests: XCTestCase {
     func testDispositionChangeViaContextMenu() throws {
         let app = launchApp()
 
-        app.buttons["Add Tool"].firstMatch.tap()
-        let nameField = app.textFields["Name"]
-        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
-        nameField.tap()
-        nameField.typeText("Retiring Sander")
-        app.buttons["Save"].tap()
+        addTool(in: app, brand: "Retiring", model: "Sander")
 
         let cell = app.staticTexts["Retiring Sander"]
         XCTAssertTrue(cell.waitForExistence(timeout: 5))

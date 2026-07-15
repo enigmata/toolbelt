@@ -42,7 +42,9 @@ struct FoundationModelsProvider: AIProvider {
         var name: String?
         @Guide(description: "Manufacturer brand, e.g. \"Makita\"")
         var brand: String?
-        @Guide(description: "Manufacturer model number")
+        @Guide(description: "Marketed model designation, e.g. \"XDT17\" or \"OSC 18\"")
+        var modelName: String?
+        @Guide(description: "Manufacturer article/part number, e.g. \"10041861\" — not the model name")
         var modelNumber: String?
         @Guide(description: "Taxonomy path like \"Drill › SDS Plus\" or \"Chisel › Wood\"")
         var suggestedTypePath: String?
@@ -61,7 +63,7 @@ struct FoundationModelsProvider: AIProvider {
 
         var dto: ToolDetailsSuggestion {
             ToolDetailsSuggestion(
-                name: name, brand: brand, modelNumber: modelNumber,
+                name: name, brand: brand, modelName: modelName, modelNumber: modelNumber,
                 suggestedTypePath: suggestedTypePath, powerSource: powerSource,
                 batteryVoltage: batteryVoltage, batteryAmpHours: batteryAmpHours,
                 manufacturerLink: manufacturerLink, howToLink: howToLink, notes: notes
@@ -104,7 +106,7 @@ struct FoundationModelsProvider: AIProvider {
     func lookupToolDetails(brand: String, model: String) async throws -> ToolDetailsSuggestion {
         let session = LanguageModelSession(instructions: Self.instructions)
         let response = try await session.respond(
-            to: "Identify this tool and fill in its details. Brand: \(brand). Model number: \(model).",
+            to: "Identify this tool and fill in its details. Brand: \(brand). Model name: \(model).",
             generating: ToolDetailsGen.self
         )
         return response.content.dto

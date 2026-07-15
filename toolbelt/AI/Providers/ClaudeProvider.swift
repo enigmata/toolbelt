@@ -26,7 +26,7 @@ struct ClaudeProvider: AIProvider {
             prompt: """
                 Identify this tool and fill in its details.
                 Brand: \(brand)
-                Model number: \(model)
+                Model name: \(model)
                 For suggestedTypePath use "Type" or "Type › Subtype" naming, \
                 e.g. "Drill › SDS Plus" or "Chisel › Wood".
                 """,
@@ -61,8 +61,9 @@ struct ClaudeProvider: AIProvider {
                 "type": "text",
                 "text": """
                     This photo shows a tool or its retail packaging. Identify the \
-                    product and fill in its details. Read brand, model number, \
-                    voltage, and amp-hours from the packaging where visible.
+                    product and fill in its details. Read brand, model name, \
+                    model number, voltage, and amp-hours from the packaging \
+                    where visible.
                     """,
             ],
         ]
@@ -74,7 +75,7 @@ struct ClaudeProvider: AIProvider {
             prompt: """
                 Suggest official documentation links for this tool.
                 Brand: \(brand)
-                Model number: \(model)
+                Model name: \(model)
                 manufacturerLink: the product or spec page on the maker's site.
                 howToLinks: up to 3 how-to / tutorial video searches or pages.
                 """,
@@ -88,7 +89,8 @@ struct ClaudeProvider: AIProvider {
         let details = [
             "Name: \(tool.name)",
             tool.brand.isEmpty ? nil : "Brand: \(tool.brand)",
-            tool.modelNumber.isEmpty ? nil : "Model: \(tool.modelNumber)",
+            tool.modelName.isEmpty ? nil : "Model: \(tool.modelName)",
+            tool.modelNumber.isEmpty ? nil : "Model number: \(tool.modelNumber)",
             tool.typePath.map { "Type: \($0)" },
             tool.batteryVoltage.map { "Battery: \($0)V" },
         ].compactMap(\.self).joined(separator: "\n")
@@ -174,7 +176,14 @@ struct ClaudeProvider: AIProvider {
         "properties": [
             "name": nullable("string"),
             "brand": nullable("string"),
-            "modelNumber": nullable("string"),
+            "modelName": [
+                "type": ["string", "null"],
+                "description": "Marketed model designation, e.g. \"XDT17\" or \"OSC 18\"",
+            ],
+            "modelNumber": [
+                "type": ["string", "null"],
+                "description": "Manufacturer article/part number, e.g. \"10041861\" — not the model name",
+            ],
             "suggestedTypePath": nullable("string"),
             "powerSource": ["type": ["string", "null"], "enum": ["Corded", "Battery", NSNull()]],
             "batteryVoltage": nullable("integer"),
@@ -184,7 +193,7 @@ struct ClaudeProvider: AIProvider {
             "notes": nullable("string"),
         ],
         "required": [
-            "name", "brand", "modelNumber", "suggestedTypePath", "powerSource",
+            "name", "brand", "modelName", "modelNumber", "suggestedTypePath", "powerSource",
             "batteryVoltage", "batteryAmpHours", "manufacturerLink", "howToLink", "notes",
         ],
         "additionalProperties": false,

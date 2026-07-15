@@ -7,7 +7,9 @@ enum ExportService {
     struct ToolSnapshot: Codable, Equatable {
         var name: String
         var brand: String
+        var modelName: String
         var modelNumber: String
+        var serialNumber: String
         var typePath: String?
         var kind: String?
         var disposition: String
@@ -25,7 +27,9 @@ enum ExportService {
         init(tool: Tool) {
             name = tool.name
             brand = tool.brand
+            modelName = tool.modelName
             modelNumber = tool.modelNumber
+            serialNumber = tool.serialNumber
             typePath = tool.type?.path
             kind = tool.kind?.rawValue
             disposition = tool.disposition.rawValue
@@ -43,7 +47,8 @@ enum ExportService {
     }
 
     static let csvHeader = [
-        "Name", "Brand", "Model", "Type", "Kind", "Disposition", "Power Source",
+        "Name", "Brand", "Model Name", "Model Number", "Serial Number",
+        "Type", "Kind", "Disposition", "Power Source",
         "Battery Voltage", "Battery Ah", "Storage Location", "Purchase Date",
         "Store", "Manufacturer Link", "How-To Link", "Notes", "Added",
     ]
@@ -55,7 +60,9 @@ enum ExportService {
             let fields: [String] = [
                 snapshot.name,
                 snapshot.brand,
+                snapshot.modelName,
                 snapshot.modelNumber,
+                snapshot.serialNumber,
                 snapshot.typePath ?? "",
                 snapshot.kind ?? "",
                 snapshot.disposition,
