@@ -82,11 +82,25 @@ struct ToolFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                autoFillSection
-
-                Section("Identity") {
+                Section {
                     TextField("Brand", text: $brand)
-                    TextField("Model Name", text: $modelName)
+                        .onSubmit(lookUpIfReady)
+                    HStack {
+                        TextField("Model Name", text: $modelName)
+                            .onSubmit(lookUpIfReady)
+                        if aiBusy {
+                            ProgressView()
+                        } else {
+                            Button {
+                                lookUpBrandModel()
+                            } label: {
+                                Image(systemName: "sparkle.magnifyingglass")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(!canLookUp)
+                            .accessibilityLabel("Look Up Brand + Model")
+                        }
+                    }
                     TextField("Model Number", text: $modelNumber)
                     TextField("Serial Number", text: $serialNumber)
                     Picker("Type", selection: $selectedType) {
@@ -96,7 +110,13 @@ struct ToolFormView: View {
                                 .tag(Optional(type))
                         }
                     }
+                } header: {
+                    Text("Identity")
+                } footer: {
+                    lookupStatusFooter
                 }
+
+                autoFillSection
 
                 if selectedType?.kind == .power {
                     Section("Power") {
@@ -203,29 +223,52 @@ struct ToolFormView: View {
 
     // MARK: Auto-fill
 
-    private var autoFillSection: some View {
-        Section {
-            Button {
-                Task {
-                    await lookup {
-                        var suggestion = try await AIService.shared.lookupToolDetails(brand: brand, model: modelName)
-                        // Top up missing links when the form has none yet.
-                        if manufacturerLink.isEmpty, howToLink.isEmpty,
-                           suggestion.manufacturerLink == nil || suggestion.howToLink == nil {
-                            if let links = try? await AIService.shared.suggestLinks(brand: brand, model: modelName) {
-                                suggestion.manufacturerLink = suggestion.manufacturerLink ?? links.manufacturerLink
-                                suggestion.howToLink = suggestion.howToLink ?? links.howToLinks?.first?.url
-                            }
-                        }
-                        return suggestion
+    /// Lookup status lives directly under the Brand/Model fields so busy
+    /// state and errors are visible where the lookup was triggered, instead
+    /// of below the fold in the Auto-Fill section.
+    @ViewBuilder
+    private var lookupStatusFooter: some View {
+        if let aiErrorMessage {
+            Text(aiErrorMessage)
+                .foregroundStyle(.orange)
+        } else if aiBusy {
+            Text("Asking \((try? AIService.shared.identificationProvider())?.displayName ?? "AI")…")
+        } else {
+            Text("Enter brand and model name, then hit return or the magnifying glass to look up the rest automatically.")
+        }
+    }
+
+    private var canLookUp: Bool {
+        !brand.trimmingCharacters(in: .whitespaces).isEmpty
+            && !modelName.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Keyboard-submit trigger: fires only when both fields are filled and
+    /// no lookup is already running, so hitting return early is harmless.
+    private func lookUpIfReady() {
+        guard canLookUp, !aiBusy else { return }
+        lookUpBrandModel()
+    }
+
+    private func lookUpBrandModel() {
+        Task {
+            await lookup {
+                var suggestion = try await AIService.shared.lookupToolDetails(brand: brand, model: modelName)
+                // Top up missing links when the form has none yet.
+                if manufacturerLink.isEmpty, howToLink.isEmpty,
+                   suggestion.manufacturerLink == nil || suggestion.howToLink == nil {
+                    if let links = try? await AIService.shared.suggestLinks(brand: brand, model: modelName) {
+                        suggestion.manufacturerLink = suggestion.manufacturerLink ?? links.manufacturerLink
+                        suggestion.howToLink = suggestion.howToLink ?? links.howToLinks?.first?.url
                     }
                 }
-            } label: {
-                Label("Look Up Brand + Model", systemImage: "sparkle.magnifyingglass")
+                return suggestion
             }
-            .disabled(brand.trimmingCharacters(in: .whitespaces).isEmpty
-                      || modelName.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+    }
 
+    private var autoFillSection: some View {
+        Section {
             Button {
                 showingScanner = true
             } label: {
@@ -237,23 +280,10 @@ struct ToolFormView: View {
             } label: {
                 Label("From Packaging Photo", systemImage: "camera.viewfinder")
             }
-
-            if aiBusy {
-                HStack {
-                    ProgressView()
-                    Text("Asking \(AIService.shared.activeProvider?.displayName ?? "AI")…")
-                        .foregroundStyle(.secondary)
-                }
-            }
         } header: {
             Text("Auto-Fill")
         } footer: {
-            if let aiErrorMessage {
-                Text(aiErrorMessage)
-                    .foregroundStyle(.orange)
-            } else {
-                Text("Suggestions fill empty fields only; review before applying. Configure the provider in AI Settings.")
-            }
+            Text("Suggestions fill empty fields only; review before applying. Configure the provider in AI Settings.")
         }
     }
 

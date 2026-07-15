@@ -9,7 +9,9 @@ struct GeminiProvider: AIProvider {
     var isAvailable: Bool { true }
     var unavailabilityReason: String? { nil }
 
-    private static let model = "gemini-2.5-flash"
+    // Gemini 2.x is closed to new API users; keep this on the current
+    // stable flash model (Google 404s retired IDs with an explicit message).
+    private static let model = "gemini-3.5-flash"
     private static var endpoint: URL {
         URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")!
     }
@@ -23,26 +25,30 @@ struct GeminiProvider: AIProvider {
     // MARK: AIProvider
 
     func lookupToolDetails(brand: String, model: String) async throws -> ToolDetailsSuggestion {
-        try await generate(
-            parts: [["text": """
-                Identify this tool and fill in its details.
+        try await groundedGenerate(
+            question: """
+                Research this tool online.
                 Brand: \(brand)
                 Model name: \(model)
-                For suggestedTypePath use "Type" or "Type › Subtype" naming, \
-                e.g. "Drill › SDS Plus" or "Chisel › Wood".
-                """]],
+                Report, from the manufacturer's site where possible: full \
+                product name, manufacturer article/part number, tool category \
+                and subtype, corded or battery, battery voltage and amp-hours, \
+                official product page URL, a how-to video URL, and one usage \
+                tip. Say "unknown" for anything you cannot verify.
+                """,
             schema: Self.toolDetailsSchema,
             as: ToolDetailsSuggestion.self
         )
     }
 
     func lookupToolDetails(barcode: String) async throws -> ToolDetailsSuggestion {
-        try await generate(
-            parts: [["text": """
+        try await groundedGenerate(
+            question: """
                 A tool product barcode was scanned. Payload: \(barcode)
-                If you can identify the product (UPC/EAN or encoded text), fill \
-                in its details; otherwise return nulls.
-                """]],
+                Search for this UPC/EAN online. If it identifies a product, \
+                report its brand, model name, article number, category, power \
+                specs, and official product page; otherwise say "unknown".
+                """,
             schema: Self.toolDetailsSchema,
             as: ToolDetailsSuggestion.self
         )
@@ -65,14 +71,15 @@ struct GeminiProvider: AIProvider {
     }
 
     func suggestLinks(brand: String, model: String) async throws -> LinkSuggestions {
-        try await generate(
-            parts: [["text": """
-                Suggest official documentation links for this tool.
+        try await groundedGenerate(
+            question: """
+                Find documentation links online for this tool.
                 Brand: \(brand)
                 Model name: \(model)
-                manufacturerLink: the product or spec page on the maker's site.
-                howToLinks: up to 3 how-to / tutorial video searches or pages.
-                """]],
+                Report the official product or spec page on the maker's site \
+                and up to 3 how-to / tutorial videos or pages, with titles \
+                and URLs. Only list URLs you found in search results.
+                """,
             schema: Self.linkSuggestionsSchema,
             as: LinkSuggestions.self
         )
@@ -105,18 +112,46 @@ struct GeminiProvider: AIProvider {
     // MARK: Request plumbing
 
     private func generate<T: Decodable>(parts: [[String: Any]], schema: [String: Any], as type: T.Type) async throws -> T {
-        guard let apiKey = KeychainHelper.read(for: .gemini) else {
-            throw AIError.missingAPIKey
-        }
-
-        let body: [String: Any] = [
+        let text = try await send(body: [
             "system_instruction": ["parts": [["text": Self.systemPrompt]]],
             "contents": [["role": "user", "parts": parts]],
             "generationConfig": [
                 "responseMimeType": "application/json",
                 "responseSchema": schema,
             ],
-        ]
+        ])
+        guard let jsonData = text.data(using: .utf8) else {
+            throw AIError.badResponse("No text content in response.")
+        }
+        return try JSONDecoder().decode(T.self, from: jsonData)
+    }
+
+    /// Gemini rejects Google Search grounding combined with a response
+    /// schema in one call, so grounded lookups run in two steps: a search
+    /// call that gathers verified facts as text, then a schema-constrained
+    /// call that structures them.
+    private func groundedGenerate<T: Decodable>(question: String, schema: [String: Any], as type: T.Type) async throws -> T {
+        let notes = try await send(body: [
+            "system_instruction": ["parts": [["text": Self.systemPrompt]]],
+            "contents": [["role": "user", "parts": [["text": question]]]],
+            "tools": [["google_search": [:]]],
+        ])
+        return try await generate(
+            parts: [["text": """
+                Fill in the JSON fields using only these verified research \
+                notes. Leave anything the notes don't cover as null.
+
+                \(notes)
+                """]],
+            schema: schema,
+            as: type
+        )
+    }
+
+    private func send(body: [String: Any]) async throws -> String {
+        guard let apiKey = KeychainHelper.read(for: .gemini) else {
+            throw AIError.missingAPIKey
+        }
 
         var urlRequest = URLRequest(url: Self.endpoint)
         urlRequest.httpMethod = "POST"
@@ -127,20 +162,25 @@ struct GeminiProvider: AIProvider {
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             switch http.statusCode {
-            case 401, 403: throw AIError.missingAPIKey
+            case 401: throw AIError.missingAPIKey
             case 429: throw AIError.rateLimited
             default:
-                let detail = String(data: data, encoding: .utf8)?.prefix(200) ?? ""
+                // 403 stays here too: Google uses it for disabled APIs,
+                // key restrictions, and billing — not just missing keys,
+                // so surface the real message instead of "add a key".
+                let detail = String(data: data, encoding: .utf8)?.prefix(300) ?? ""
                 throw AIError.badResponse("HTTP \(http.statusCode): \(detail)")
             }
         }
 
         let decoded = try JSONDecoder().decode(GenerateContentResponse.self, from: data)
-        guard let text = decoded.candidates?.first?.content?.parts?.first?.text,
-              let jsonData = text.data(using: .utf8) else {
+        let text = (decoded.candidates?.first?.content?.parts ?? [])
+            .compactMap(\.text)
+            .joined()
+        guard !text.isEmpty else {
             throw AIError.badResponse("No text content in response.")
         }
-        return try JSONDecoder().decode(T.self, from: jsonData)
+        return text
     }
 
     private struct GenerateContentResponse: Decodable {

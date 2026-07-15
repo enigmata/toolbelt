@@ -27,10 +27,15 @@ struct ClaudeProvider: AIProvider {
                 Identify this tool and fill in its details.
                 Brand: \(brand)
                 Model name: \(model)
+                Use web search to verify the product against the \
+                manufacturer's site — especially the article/part number, \
+                power specs, and product page URL. Leave anything you cannot \
+                verify as null.
                 For suggestedTypePath use "Type" or "Type › Subtype" naming, \
                 e.g. "Drill › SDS Plus" or "Chisel › Wood".
                 """,
             schema: Self.toolDetailsSchema,
+            grounded: true,
             as: ToolDetailsSuggestion.self
         )
     }
@@ -39,10 +44,11 @@ struct ClaudeProvider: AIProvider {
         try await generate(
             prompt: """
                 A tool product barcode was scanned. Payload: \(barcode)
-                If you can identify the product (UPC/EAN or encoded text), fill \
-                in its details; otherwise return nulls.
+                Search the web for this UPC/EAN to identify the product and \
+                fill in its details; otherwise return nulls.
                 """,
             schema: Self.toolDetailsSchema,
+            grounded: true,
             as: ToolDetailsSuggestion.self
         )
     }
@@ -67,19 +73,21 @@ struct ClaudeProvider: AIProvider {
                     """,
             ],
         ]
-        return try await request(content: content, schema: Self.toolDetailsSchema, as: ToolDetailsSuggestion.self)
+        return try await request(content: content, schema: Self.toolDetailsSchema, grounded: true, as: ToolDetailsSuggestion.self)
     }
 
     func suggestLinks(brand: String, model: String) async throws -> LinkSuggestions {
         try await generate(
             prompt: """
-                Suggest official documentation links for this tool.
+                Find official documentation links for this tool via web search.
                 Brand: \(brand)
                 Model name: \(model)
                 manufacturerLink: the product or spec page on the maker's site.
                 howToLinks: up to 3 how-to / tutorial video searches or pages.
+                Only return URLs you verified exist.
                 """,
             schema: Self.linkSuggestionsSchema,
+            grounded: true,
             as: LinkSuggestions.self
         )
     }
@@ -110,59 +118,76 @@ struct ClaudeProvider: AIProvider {
 
     // MARK: Request plumbing
 
-    private func generate<T: Decodable>(prompt: String, schema: [String: Any], as type: T.Type) async throws -> T {
-        try await request(content: [["type": "text", "text": prompt]], schema: schema, as: type)
+    private func generate<T: Decodable>(prompt: String, schema: [String: Any], grounded: Bool = false, as type: T.Type) async throws -> T {
+        try await request(content: [["type": "text", "text": prompt]], schema: schema, grounded: grounded, as: type)
     }
 
-    private func request<T: Decodable>(content: [[String: Any]], schema: [String: Any], as type: T.Type) async throws -> T {
+    /// `grounded` adds the server-side web_search tool so answers come from
+    /// live product pages rather than model memory. The server runs the
+    /// search loop; `pause_turn` means it hit its iteration limit and wants
+    /// the turn re-sent to resume.
+    private func request<T: Decodable>(content: [[String: Any]], schema: [String: Any], grounded: Bool = false, as type: T.Type) async throws -> T {
         guard let apiKey = KeychainHelper.read(for: .claude) else {
             throw AIError.missingAPIKey
         }
 
-        let body: [String: Any] = [
-            "model": Self.model,
-            "max_tokens": 2048,
-            "system": Self.systemPrompt,
-            "messages": [["role": "user", "content": content]],
-            "output_config": ["format": ["type": "json_schema", "schema": schema]],
-        ]
-
-        var urlRequest = URLRequest(url: Self.endpoint)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json", forHTTPHeaderField: "content-type")
-        urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        urlRequest.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
-        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-            switch http.statusCode {
-            case 401: throw AIError.missingAPIKey
-            case 429: throw AIError.rateLimited
-            default:
-                let detail = String(data: data, encoding: .utf8)?.prefix(200) ?? ""
-                throw AIError.badResponse("HTTP \(http.statusCode): \(detail)")
+        var messages: [[String: Any]] = [["role": "user", "content": content]]
+        for _ in 0..<3 {
+            var body: [String: Any] = [
+                "model": Self.model,
+                "max_tokens": 4096,
+                "system": Self.systemPrompt,
+                "messages": messages,
+                "output_config": ["format": ["type": "json_schema", "schema": schema]],
+            ]
+            if grounded {
+                body["tools"] = [["type": "web_search_20260209", "name": "web_search", "max_uses": 5]]
             }
-        }
 
-        let decoded = try JSONDecoder().decode(MessagesResponse.self, from: data)
-        if decoded.stop_reason == "refusal" {
-            throw AIError.badResponse("The request was declined.")
-        }
-        guard let text = decoded.content.first(where: { $0.type == "text" })?.text,
-              let jsonData = text.data(using: .utf8) else {
-            throw AIError.badResponse("No text content in response.")
-        }
-        return try JSONDecoder().decode(T.self, from: jsonData)
-    }
+            var urlRequest = URLRequest(url: Self.endpoint)
+            urlRequest.httpMethod = "POST"
+            urlRequest.setValue("application/json", forHTTPHeaderField: "content-type")
+            urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+            urlRequest.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-    private struct MessagesResponse: Decodable {
-        struct Block: Decodable {
-            let type: String
-            let text: String?
+            let (data, response) = try await URLSession.shared.data(for: urlRequest)
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                switch http.statusCode {
+                case 401: throw AIError.missingAPIKey
+                case 429: throw AIError.rateLimited
+                default:
+                    let detail = String(data: data, encoding: .utf8)?.prefix(200) ?? ""
+                    throw AIError.badResponse("HTTP \(http.statusCode): \(detail)")
+                }
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let blocks = json["content"] as? [[String: Any]] else {
+                throw AIError.badResponse("Unexpected response shape.")
+            }
+            let stopReason = json["stop_reason"] as? String
+            if stopReason == "refusal" {
+                throw AIError.badResponse("The request was declined.")
+            }
+            if stopReason == "pause_turn" {
+                messages.append(["role": "assistant", "content": blocks])
+                continue
+            }
+
+            // Web-search responses can split the answer across text blocks.
+            let text = blocks
+                .compactMap { block -> String? in
+                    guard block["type"] as? String == "text" else { return nil }
+                    return block["text"] as? String
+                }
+                .joined()
+            guard !text.isEmpty, let jsonData = text.data(using: .utf8) else {
+                throw AIError.badResponse("No text content in response.")
+            }
+            return try JSONDecoder().decode(T.self, from: jsonData)
         }
-        let content: [Block]
-        let stop_reason: String?
+        throw AIError.badResponse("The web search did not finish. Try again.")
     }
 
     // MARK: JSON Schemas (mirror the DTOs; all-optional via nullable types)

@@ -91,18 +91,38 @@ final class AIService {
         return provider
     }
 
+    /// Identification (brand/model lookup, barcode, packaging photo) needs
+    /// grounded real-world product data. The on-device model guesses and
+    /// frequently misidentifies tools, so when a cloud provider with web
+    /// access is configured, identification routes there even if the user's
+    /// selected provider is the on-device model. Other tasks (companions,
+    /// tips) still use the selected provider.
+    func identificationProvider() throws -> any AIProvider {
+        if let active = activeProvider, active.id != .foundationModels,
+           readinessIssue(for: active) == nil {
+            return active
+        }
+        let cloudOrder: [AIProviderID] = [.claude, .gemini]
+        if let cloud = cloudOrder
+            .compactMap({ provider(for: $0) })
+            .first(where: { readinessIssue(for: $0) == nil }) {
+            return cloud
+        }
+        return try readyProvider()
+    }
+
     // MARK: Facade
 
     func lookupToolDetails(brand: String, model: String) async throws -> ToolDetailsSuggestion {
-        try await readyProvider().lookupToolDetails(brand: brand, model: model)
+        try await identificationProvider().lookupToolDetails(brand: brand, model: model)
     }
 
     func lookupToolDetails(barcode: String) async throws -> ToolDetailsSuggestion {
-        try await readyProvider().lookupToolDetails(barcode: barcode)
+        try await identificationProvider().lookupToolDetails(barcode: barcode)
     }
 
     func extractDetails(fromImage jpegData: Data) async throws -> ToolDetailsSuggestion {
-        try await readyProvider().extractDetails(fromImage: jpegData)
+        try await identificationProvider().extractDetails(fromImage: jpegData)
     }
 
     func suggestLinks(brand: String, model: String) async throws -> LinkSuggestions {

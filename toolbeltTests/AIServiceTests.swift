@@ -66,6 +66,45 @@ struct AIServiceTests {
         let suggestion = try await service.lookupToolDetails(brand: "MockCo", model: "X1")
         #expect(suggestion.name == "Mock Drill")
     }
+
+    // MARK: Identification routing
+
+    private func onDeviceMock() -> MockAIProvider {
+        var provider = MockAIProvider()
+        provider.id = .foundationModels
+        provider.requiresAPIKey = false
+        provider.requiresNetwork = false
+        return provider
+    }
+
+    @Test func identificationPrefersCloudOverOnDeviceModel() throws {
+        let service = AIService(
+            providers: [onDeviceMock(), MockAIProvider()],
+            keyLookup: { _ in "sk-test" }
+        )
+        service.selectedProviderID = .foundationModels
+        #expect(try service.identificationProvider().id == .claude)
+    }
+
+    @Test func identificationFallsBackToOnDeviceWithoutCloudKey() throws {
+        let service = AIService(
+            providers: [onDeviceMock(), MockAIProvider()],
+            keyLookup: { _ in nil }
+        )
+        service.selectedProviderID = .foundationModels
+        #expect(try service.identificationProvider().id == .foundationModels)
+    }
+
+    @Test func identificationRespectsSelectedCloudProvider() throws {
+        var gemini = MockAIProvider()
+        gemini.id = .gemini
+        let service = AIService(
+            providers: [MockAIProvider(), gemini],
+            keyLookup: { _ in "sk-test" }
+        )
+        service.selectedProviderID = .gemini
+        #expect(try service.identificationProvider().id == .gemini)
+    }
 }
 
 @Suite("AI DTO decoding")
