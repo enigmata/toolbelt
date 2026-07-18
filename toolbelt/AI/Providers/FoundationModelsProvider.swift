@@ -127,7 +127,7 @@ struct FoundationModelsProvider: AIProvider {
 
     func extractDetails(fromImage jpegData: Data) async throws -> ToolDetailsSuggestion {
         throw AIError.unavailable(
-            "The on-device model is text-only. Use Claude or Gemini for photo extraction."
+            "Apple Intelligence is text-only and can't read photos. Add a Claude or Gemini API key in AI Settings to identify tools from photos."
         )
     }
 

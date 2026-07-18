@@ -128,7 +128,7 @@ struct ClaudeProvider: AIProvider {
     /// the turn re-sent to resume.
     private func request<T: Decodable>(content: [[String: Any]], schema: [String: Any], grounded: Bool = false, as type: T.Type) async throws -> T {
         guard let apiKey = KeychainHelper.read(for: .claude) else {
-            throw AIError.missingAPIKey
+            throw AIError.missingAPIKey(id)
         }
 
         var messages: [[String: Any]] = [["role": "user", "content": content]]
@@ -154,21 +154,22 @@ struct ClaudeProvider: AIProvider {
             let (data, response) = try await URLSession.shared.data(for: urlRequest)
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                 switch http.statusCode {
-                case 401: throw AIError.missingAPIKey
-                case 429: throw AIError.rateLimited
+                case 401: throw AIError.unauthorized(id)
+                case 429: throw AIError.rateLimited(id, detail: AIError.apiErrorMessage(from: data))
                 default:
-                    let detail = String(data: data, encoding: .utf8)?.prefix(200) ?? ""
-                    throw AIError.badResponse("HTTP \(http.statusCode): \(detail)")
+                    let detail = AIError.apiErrorMessage(from: data)
+                        ?? String(String(data: data, encoding: .utf8)?.prefix(200) ?? "")
+                    throw AIError.badResponse(id, "HTTP \(http.statusCode): \(detail)")
                 }
             }
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let blocks = json["content"] as? [[String: Any]] else {
-                throw AIError.badResponse("Unexpected response shape.")
+                throw AIError.badResponse(id, "Unexpected response shape.")
             }
             let stopReason = json["stop_reason"] as? String
             if stopReason == "refusal" {
-                throw AIError.badResponse("The request was declined.")
+                throw AIError.badResponse(id, "The request was declined.")
             }
             if stopReason == "pause_turn" {
                 messages.append(["role": "assistant", "content": blocks])
@@ -183,11 +184,11 @@ struct ClaudeProvider: AIProvider {
                 }
                 .joined()
             guard !text.isEmpty, let jsonData = text.data(using: .utf8) else {
-                throw AIError.badResponse("No text content in response.")
+                throw AIError.badResponse(id, "No text content in response.")
             }
             return try JSONDecoder().decode(T.self, from: jsonData)
         }
-        throw AIError.badResponse("The web search did not finish. Try again.")
+        throw AIError.badResponse(id, "The web search did not finish. Try again.")
     }
 
     // MARK: JSON Schemas (mirror the DTOs; all-optional via nullable types)

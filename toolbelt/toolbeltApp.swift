@@ -13,7 +13,13 @@ struct ToolbeltApp: App {
         let isTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             || ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
         if isTestHost || ProcessInfo.processInfo.arguments.contains("-uiTesting") {
-            let inMemory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            // cloudKitDatabase must be explicit: .automatic engages CloudKit
+            // machinery even on an in-memory store under Xcode 27 betas,
+            // which kills the SQLite connection ("No eligible connection
+            // available") before tests can attach.
+            let inMemory = ModelConfiguration(
+                schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none
+            )
             container = try! ModelContainer(for: schema, configurations: [inMemory])
             SeedData.seedIfNeeded(context: container.mainContext)
             return

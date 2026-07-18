@@ -24,7 +24,7 @@ struct AISettingsView: View {
                 } header: {
                     Text("AI Provider")
                 } footer: {
-                    Text("Powers tool lookups, photo identification of packaging, link suggestions, and companion-tool ideas. The Apple on-device model is free, private, and works offline; cloud providers need an API key and a connection.")
+                    Text("Powers tool lookups, photo identification of packaging, link suggestions, and companion-tool ideas. The Apple on-device model is free, private, and works offline; cloud providers need an API key and a connection. Identification lookups can use a different provider — the Add Tool form asks once, remembers your choice, and shows a Lookup Provider picker to change it any time.")
                 }
 
                 Section("Status") {

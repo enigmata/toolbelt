@@ -81,25 +81,59 @@ struct ToolSnapshot: Codable, Equatable, Sendable {
     }
 }
 
+/// Every case that originates from a specific provider names it, so the user
+/// always knows which service failed and what they can do about it.
 enum AIError: LocalizedError, Equatable {
     case unavailable(String)
-    case missingAPIKey
+    case missingAPIKey(AIProviderID)
+    case unauthorized(AIProviderID)
     case offline
-    case badResponse(String)
-    case rateLimited
+    case badResponse(AIProviderID, String)
+    case rateLimited(AIProviderID, detail: String?)
 
     var errorDescription: String? {
         switch self {
         case .unavailable(let reason):
             reason
-        case .missingAPIKey:
-            "Add an API key for the selected AI provider in Settings."
+        case .missingAPIKey(let provider):
+            "\(provider.shortName) needs an API key. Add one in AI Settings, or select a different provider."
+        case .unauthorized(let provider):
+            "\(provider.shortName) rejected the API key (HTTP 401). Re-check the key in AI Settings."
         case .offline:
             "AI lookup needs a network connection. The Apple on-device model works offline."
-        case .badResponse(let detail):
-            "The AI provider returned an unexpected response: \(detail)"
-        case .rateLimited:
-            "The AI provider is rate-limiting requests. Try again shortly."
+        case .badResponse(let provider, let detail):
+            "\(provider.shortName) returned an unexpected response: \(detail)"
+        case .rateLimited(let provider, let detail):
+            Self.rateLimitMessage(provider: provider, detail: detail)
         }
+    }
+
+    private static func rateLimitMessage(provider: AIProviderID, detail: String?) -> String {
+        var parts = ["\(provider.shortName) turned the request away because of a rate or usage limit (HTTP 429)."]
+        if let detail, !detail.isEmpty {
+            parts.append("\(provider.shortName) says: \(detail)")
+        }
+        switch provider {
+        case .claude:
+            parts.append("Wait and retry, review your plan and limits at console.anthropic.com, or pick another provider in AI Settings.")
+        case .gemini:
+            parts.append("If this happens without recent use, the key's Google project may have no quota for this model or for search grounding — check aistudio.google.com, or pick another provider in AI Settings.")
+        case .foundationModels:
+            parts.append("Wait a moment and try again.")
+        }
+        return parts.joined(separator: " ")
+    }
+
+    /// Anthropic and Google both wrap failures as {"error": {"message": …}};
+    /// surface that message so the user sees the provider's own explanation
+    /// instead of a bare status code.
+    static func apiErrorMessage(from data: Data) -> String? {
+        struct Envelope: Decodable {
+            struct Payload: Decodable { let message: String? }
+            let error: Payload?
+        }
+        guard let message = (try? JSONDecoder().decode(Envelope.self, from: data))?.error?.message,
+              !message.isEmpty else { return nil }
+        return String(message.prefix(300))
     }
 }

@@ -121,7 +121,7 @@ struct GeminiProvider: AIProvider {
             ],
         ])
         guard let jsonData = text.data(using: .utf8) else {
-            throw AIError.badResponse("No text content in response.")
+            throw AIError.badResponse(id, "No text content in response.")
         }
         return try JSONDecoder().decode(T.self, from: jsonData)
     }
@@ -150,7 +150,7 @@ struct GeminiProvider: AIProvider {
 
     private func send(body: [String: Any]) async throws -> String {
         guard let apiKey = KeychainHelper.read(for: .gemini) else {
-            throw AIError.missingAPIKey
+            throw AIError.missingAPIKey(id)
         }
 
         var urlRequest = URLRequest(url: Self.endpoint)
@@ -162,14 +162,15 @@ struct GeminiProvider: AIProvider {
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             switch http.statusCode {
-            case 401: throw AIError.missingAPIKey
-            case 429: throw AIError.rateLimited
+            case 401: throw AIError.unauthorized(id)
+            case 429: throw AIError.rateLimited(id, detail: AIError.apiErrorMessage(from: data))
             default:
                 // 403 stays here too: Google uses it for disabled APIs,
                 // key restrictions, and billing — not just missing keys,
                 // so surface the real message instead of "add a key".
-                let detail = String(data: data, encoding: .utf8)?.prefix(300) ?? ""
-                throw AIError.badResponse("HTTP \(http.statusCode): \(detail)")
+                let detail = AIError.apiErrorMessage(from: data)
+                    ?? String(String(data: data, encoding: .utf8)?.prefix(300) ?? "")
+                throw AIError.badResponse(id, "HTTP \(http.statusCode): \(detail)")
             }
         }
 
@@ -178,7 +179,7 @@ struct GeminiProvider: AIProvider {
             .compactMap(\.text)
             .joined()
         guard !text.isEmpty else {
-            throw AIError.badResponse("No text content in response.")
+            throw AIError.badResponse(id, "No text content in response.")
         }
         return text
     }

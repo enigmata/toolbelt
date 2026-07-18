@@ -163,7 +163,7 @@ struct ToolDetailView: View {
                 if companionsBusy {
                     HStack {
                         ProgressView()
-                        Text("Thinking…")
+                        Text("Asking \(AIService.shared.selectedProviderID.shortName)…")
                     }
                 } else {
                     Label(
@@ -178,6 +178,8 @@ struct ToolDetailView: View {
         } footer: {
             if let companionsError {
                 Text(companionsError).foregroundStyle(.orange)
+            } else {
+                Text("Suggestions use \(AIService.shared.selectedProviderID.displayName).")
             }
         }
     }

@@ -36,10 +36,41 @@ struct ToolFormView: View {
     @State private var aiBusy = false
     @State private var aiErrorMessage: String?
     @State private var pendingSuggestion: PendingSuggestion?
+    @State private var activeLookupProvider: AIProviderID?
+    @State private var providerPrompt: ProviderPrompt?
+    @State private var failedLookup: FailedLookup?
+    @State private var lookupProviderID: AIProviderID = AIService.shared.lookupProviderID
 
     struct PendingSuggestion: Identifiable {
         let id = UUID()
         let suggestion: ToolDetailsSuggestion
+    }
+
+    enum LookupKind {
+        case brandModel
+        case barcode(String)
+        case packagingPhoto(Data)
+
+        var isPhoto: Bool {
+            if case .packagingPhoto = self { return true }
+            return false
+        }
+    }
+
+    /// Asks the user whether to run an identification lookup on a better-
+    /// suited cloud provider instead of the selected on-device model.
+    /// `storesChoice` makes the answer the sticky lookup default; the
+    /// per-photo fallback prompt leaves the default alone.
+    struct ProviderPrompt: Identifiable {
+        let id = UUID()
+        let kind: LookupKind
+        let alternative: AIProviderID
+        let storesChoice: Bool
+    }
+
+    struct FailedLookup {
+        let kind: LookupKind
+        let provider: AIProviderID
     }
 
     init(tool: Tool? = nil) {
@@ -200,12 +231,22 @@ struct ToolFormView: View {
             }
             .fullScreenCover(isPresented: $showingPackagingCamera) {
                 CameraCaptureView { data in
-                    Task { await extractFromPhoto(data) }
+                    // Same dismissal race as the barcode sheet: give the
+                    // cover time to close before presenting a prompt.
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(450))
+                        extractFromPhoto(data)
+                    }
                 }
             }
             .sheet(isPresented: $showingScanner) {
                 BarcodeScannerView { payload in
-                    Task { await lookup { try await AIService.shared.lookupToolDetails(barcode: payload) } }
+                    // Let the sheet finish dismissing before a provider
+                    // prompt may need to present, or SwiftUI drops it.
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(450))
+                        requestLookup(.barcode(payload))
+                    }
                 }
             }
             .sheet(item: $pendingSuggestion) { pending in
@@ -218,6 +259,31 @@ struct ToolFormView: View {
                     onCancel: { pendingSuggestion = nil }
                 )
             }
+            .confirmationDialog(
+                "Choose AI Provider",
+                isPresented: Binding(
+                    get: { providerPrompt != nil },
+                    set: { if !$0 { providerPrompt = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: providerPrompt
+            ) { prompt in
+                Button("Use \(prompt.alternative.displayName)") {
+                    if prompt.storesChoice { setLookupProvider(prompt.alternative) }
+                    startLookup(prompt.kind, using: prompt.alternative)
+                }
+                if !prompt.kind.isPhoto {
+                    Button("Use \(AIService.shared.selectedProviderID.displayName)") {
+                        if prompt.storesChoice { setLookupProvider(AIService.shared.selectedProviderID) }
+                        startLookup(prompt.kind, using: AIService.shared.selectedProviderID)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { prompt in
+                if prompt.kind.isPhoto {
+                    Text("\(lookupProviderID.displayName) is text-only and can't read photos. Use \(prompt.alternative.displayName) for this photo?")
+                }
+            }
         }
     }
 
@@ -229,12 +295,19 @@ struct ToolFormView: View {
     @ViewBuilder
     private var lookupStatusFooter: some View {
         if let aiErrorMessage {
-            Text(aiErrorMessage)
-                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(aiErrorMessage)
+                    .foregroundStyle(.orange)
+                if let failed = failedLookup, let retry = retryAlternative(for: failed) {
+                    Button("Try again with \(retry.displayName)") {
+                        startLookup(failed.kind, using: retry)
+                    }
+                }
+            }
         } else if aiBusy {
-            Text("Asking \((try? AIService.shared.identificationProvider())?.displayName ?? "AI")…")
+            Text("Asking \((activeLookupProvider ?? lookupProviderID).displayName)…")
         } else {
-            Text("Enter brand and model name, then hit return or the magnifying glass to look up the rest automatically.")
+            Text("Enter brand and model name, then hit return or the magnifying glass to look up the rest with \(lookupProviderID.displayName).")
         }
     }
 
@@ -251,24 +324,114 @@ struct ToolFormView: View {
     }
 
     private func lookUpBrandModel() {
-        Task {
-            await lookup {
-                var suggestion = try await AIService.shared.lookupToolDetails(brand: brand, model: modelName)
-                // Top up missing links when the form has none yet.
-                if manufacturerLink.isEmpty, howToLink.isEmpty,
-                   suggestion.manufacturerLink == nil || suggestion.howToLink == nil {
-                    if let links = try? await AIService.shared.suggestLinks(brand: brand, model: modelName) {
-                        suggestion.manufacturerLink = suggestion.manufacturerLink ?? links.manufacturerLink
-                        suggestion.howToLink = suggestion.howToLink ?? links.howToLinks?.first?.url
-                    }
-                }
-                return suggestion
+        requestLookup(.brandModel)
+    }
+
+    /// Entry point for every AI lookup. The first time the on-device model
+    /// is selected while a better-suited cloud provider is ready, the user
+    /// picks one and that choice becomes the sticky lookup default — no
+    /// prompting on later lookups. The Lookup Provider picker changes it
+    /// any time. The app never switches providers on its own.
+    private func requestLookup(_ kind: LookupKind) {
+        let service = AIService.shared
+        if service.identificationProviderID == nil,
+           let alternative = service.identificationAlternative {
+            providerPrompt = ProviderPrompt(kind: kind, alternative: alternative.id, storesChoice: true)
+            return
+        }
+        // Photos can't run on the on-device model; offer a ready cloud
+        // provider for this photo only, without touching the default.
+        if kind.isPhoto, lookupProviderID == .foundationModels,
+           let cloud = readyCloudProvider() {
+            providerPrompt = ProviderPrompt(kind: kind, alternative: cloud, storesChoice: false)
+            return
+        }
+        startLookup(kind, using: lookupProviderID)
+    }
+
+    private func setLookupProvider(_ id: AIProviderID) {
+        lookupProviderID = id
+        AIService.shared.identificationProviderID = id
+    }
+
+    private func readyCloudProvider() -> AIProviderID? {
+        [AIProviderID.claude, .gemini].first { id in
+            guard let provider = AIService.shared.provider(for: id) else { return false }
+            return AIService.shared.readinessIssue(for: provider) == nil
+        }
+    }
+
+    private func startLookup(_ kind: LookupKind, using providerID: AIProviderID) {
+        Task { await runLookup(kind, using: providerID) }
+    }
+
+    private func runLookup(_ kind: LookupKind, using providerID: AIProviderID) async {
+        aiErrorMessage = nil
+        failedLookup = nil
+        activeLookupProvider = providerID
+        aiBusy = true
+        defer {
+            aiBusy = false
+            activeLookupProvider = nil
+        }
+        do {
+            let suggestion = try await perform(kind, using: providerID)
+            if reviewEntries(for: suggestion).isEmpty {
+                aiErrorMessage = "\(providerID.shortName) found no new details — fields already filled or nothing recognized."
+            } else {
+                pendingSuggestion = PendingSuggestion(suggestion: suggestion)
             }
+        } catch let error as AIError {
+            aiErrorMessage = error.errorDescription
+            failedLookup = FailedLookup(kind: kind, provider: providerID)
+        } catch {
+            aiErrorMessage = "\(providerID.shortName): \(error.localizedDescription)"
+            failedLookup = FailedLookup(kind: kind, provider: providerID)
+        }
+    }
+
+    private func perform(_ kind: LookupKind, using providerID: AIProviderID) async throws -> ToolDetailsSuggestion {
+        switch kind {
+        case .brandModel:
+            var suggestion = try await AIService.shared.lookupToolDetails(brand: brand, model: modelName, using: providerID)
+            // Top up missing links when the form has none yet.
+            if manufacturerLink.isEmpty, howToLink.isEmpty,
+               suggestion.manufacturerLink == nil || suggestion.howToLink == nil,
+               let links = try? await AIService.shared.suggestLinks(brand: brand, model: modelName, using: providerID) {
+                suggestion.manufacturerLink = suggestion.manufacturerLink ?? links.manufacturerLink
+                suggestion.howToLink = suggestion.howToLink ?? links.howToLinks?.first?.url
+            }
+            return suggestion
+        case .barcode(let payload):
+            return try await AIService.shared.lookupToolDetails(barcode: payload, using: providerID)
+        case .packagingPhoto(let data):
+            return try await AIService.shared.extractDetails(fromImage: data, using: providerID)
+        }
+    }
+
+    /// Another ready provider to offer after a failure — cloud providers
+    /// first; photo lookups skip the text-only on-device model.
+    private func retryAlternative(for failed: FailedLookup) -> AIProviderID? {
+        let order: [AIProviderID] = [.claude, .gemini, .foundationModels]
+        return order.first { id in
+            guard id != failed.provider else { return false }
+            if failed.kind.isPhoto && id == .foundationModels { return false }
+            guard let provider = AIService.shared.provider(for: id) else { return false }
+            return AIService.shared.readinessIssue(for: provider) == nil
         }
     }
 
     private var autoFillSection: some View {
         Section {
+            Picker("Lookup Provider", selection: Binding(
+                get: { lookupProviderID },
+                set: { setLookupProvider($0) }
+            )) {
+                ForEach(AIProviderID.allCases) { id in
+                    Text(providerLabel(for: id)).tag(id)
+                }
+            }
+
             Button {
                 showingScanner = true
             } label: {
@@ -283,34 +446,26 @@ struct ToolFormView: View {
         } header: {
             Text("Auto-Fill")
         } footer: {
-            Text("Suggestions fill empty fields only; review before applying. Configure the provider in AI Settings.")
+            Text("Suggestions fill empty fields only; review before applying. Lookups use the provider above; other AI features use the one in AI Settings.")
         }
     }
 
-    private func lookup(_ operation: () async throws -> ToolDetailsSuggestion) async {
-        aiErrorMessage = nil
-        aiBusy = true
-        defer { aiBusy = false }
-        do {
-            let suggestion = try await operation()
-            if reviewEntries(for: suggestion).isEmpty {
-                aiErrorMessage = "No new details found — fields already filled or nothing recognized."
-            } else {
-                pendingSuggestion = PendingSuggestion(suggestion: suggestion)
-            }
-        } catch let error as AIError {
-            aiErrorMessage = error.errorDescription
-        } catch {
-            aiErrorMessage = error.localizedDescription
+    /// Picker labels carry the readiness issue so an unusable choice is
+    /// visible before a lookup fails.
+    private func providerLabel(for id: AIProviderID) -> String {
+        guard let provider = AIService.shared.provider(for: id),
+              let issue = AIService.shared.readinessIssue(for: provider) else {
+            return id.displayName
         }
+        return "\(id.displayName) — \(issue)"
     }
 
-    private func extractFromPhoto(_ data: Data) async {
+    private func extractFromPhoto(_ data: Data) {
         guard let downscaled = downscaledJPEG(from: data) else {
             aiErrorMessage = "Couldn't read the photo."
             return
         }
-        await lookup { try await AIService.shared.extractDetails(fromImage: downscaled) }
+        requestLookup(.packagingPhoto(downscaled))
     }
 
     private func downscaledJPEG(from data: Data, maxDimension: CGFloat = 1568) -> Data? {

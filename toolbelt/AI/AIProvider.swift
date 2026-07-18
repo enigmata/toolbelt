@@ -14,6 +14,16 @@ enum AIProviderID: String, CaseIterable, Identifiable, Codable, Sendable {
         case .gemini: "Gemini (Google)"
         }
     }
+
+    /// Compact name for status lines and error messages. Nonisolated so
+    /// AIError.errorDescription (a nonisolated protocol witness) can use it.
+    nonisolated var shortName: String {
+        switch self {
+        case .foundationModels: "Apple Intelligence"
+        case .claude: "Claude"
+        case .gemini: "Gemini"
+        }
+    }
 }
 
 /// A pluggable AI backend. All generation methods return the shared DTOs;

@@ -10,6 +10,7 @@ final class AIService {
     static let shared = AIService()
 
     static let selectedProviderKey = "aiProviderID"
+    static let identificationProviderKey = "identificationProviderID"
 
     let providers: [any AIProvider]
     private(set) var isOnline = true
@@ -74,59 +75,78 @@ final class AIService {
         return nil
     }
 
-    /// The guard chain every AI call goes through.
-    func readyProvider() throws -> any AIProvider {
-        guard let provider = activeProvider else {
-            throw AIError.unavailable("No AI provider is selected.")
+    /// The guard chain every AI call goes through. Uses the user's selected
+    /// provider unless the caller passes an explicit override — and an
+    /// override only ever comes from a choice the user just made in the UI.
+    func readyProvider(_ overrideID: AIProviderID? = nil) throws -> any AIProvider {
+        let targetID = overrideID ?? selectedProviderID
+        guard let provider = provider(for: targetID) else {
+            throw AIError.unavailable("\(targetID.shortName) is not available in this app.")
         }
         guard provider.isAvailable else {
-            throw AIError.unavailable(provider.unavailabilityReason ?? "The selected AI provider is unavailable.")
+            throw AIError.unavailable(provider.unavailabilityReason ?? "\(targetID.shortName) is unavailable.")
         }
         if provider.requiresNetwork && !isOnline {
             throw AIError.offline
         }
         if provider.requiresAPIKey && (keyLookup(provider.id) ?? "").isEmpty {
-            throw AIError.missingAPIKey
+            throw AIError.missingAPIKey(provider.id)
         }
         return provider
     }
 
-    /// Identification (brand/model lookup, barcode, packaging photo) needs
-    /// grounded real-world product data. The on-device model guesses and
-    /// frequently misidentifies tools, so when a cloud provider with web
-    /// access is configured, identification routes there even if the user's
-    /// selected provider is the on-device model. Other tasks (companions,
-    /// tips) still use the selected provider.
-    func identificationProvider() throws -> any AIProvider {
-        if let active = activeProvider, active.id != .foundationModels,
-           readinessIssue(for: active) == nil {
-            return active
+    /// The user's sticky choice for identification lookups (brand/model,
+    /// barcode, packaging photo); nil until they decide. Set from the
+    /// one-time provider prompt or the Lookup Provider picker in the form.
+    var identificationProviderID: AIProviderID? {
+        get {
+            UserDefaults.standard.string(forKey: Self.identificationProviderKey)
+                .flatMap(AIProviderID.init(rawValue:))
         }
-        let cloudOrder: [AIProviderID] = [.claude, .gemini]
-        if let cloud = cloudOrder
-            .compactMap({ provider(for: $0) })
-            .first(where: { readinessIssue(for: $0) == nil }) {
-            return cloud
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue.rawValue, forKey: Self.identificationProviderKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.identificationProviderKey)
+            }
         }
-        return try readyProvider()
+    }
+
+    /// Provider identification lookups run on: the sticky choice when the
+    /// user has made one, else the overall selection.
+    var lookupProviderID: AIProviderID {
+        identificationProviderID ?? selectedProviderID
+    }
+
+    /// Identification (brand/model lookup, barcode, packaging photo) works
+    /// best with web-grounded product data, which the on-device model lacks
+    /// — and photo extraction it can't do at all. When the on-device model
+    /// is selected and a ready cloud provider exists, this returns that
+    /// provider so the UI can *offer* it. The app never switches silently;
+    /// the user decides once and the choice is remembered.
+    var identificationAlternative: (any AIProvider)? {
+        guard selectedProviderID == .foundationModels else { return nil }
+        return [AIProviderID.claude, .gemini]
+            .compactMap { provider(for: $0) }
+            .first { readinessIssue(for: $0) == nil }
     }
 
     // MARK: Facade
 
-    func lookupToolDetails(brand: String, model: String) async throws -> ToolDetailsSuggestion {
-        try await identificationProvider().lookupToolDetails(brand: brand, model: model)
+    func lookupToolDetails(brand: String, model: String, using providerID: AIProviderID? = nil) async throws -> ToolDetailsSuggestion {
+        try await readyProvider(providerID).lookupToolDetails(brand: brand, model: model)
     }
 
-    func lookupToolDetails(barcode: String) async throws -> ToolDetailsSuggestion {
-        try await identificationProvider().lookupToolDetails(barcode: barcode)
+    func lookupToolDetails(barcode: String, using providerID: AIProviderID? = nil) async throws -> ToolDetailsSuggestion {
+        try await readyProvider(providerID).lookupToolDetails(barcode: barcode)
     }
 
-    func extractDetails(fromImage jpegData: Data) async throws -> ToolDetailsSuggestion {
-        try await identificationProvider().extractDetails(fromImage: jpegData)
+    func extractDetails(fromImage jpegData: Data, using providerID: AIProviderID? = nil) async throws -> ToolDetailsSuggestion {
+        try await readyProvider(providerID).extractDetails(fromImage: jpegData)
     }
 
-    func suggestLinks(brand: String, model: String) async throws -> LinkSuggestions {
-        try await readyProvider().suggestLinks(brand: brand, model: model)
+    func suggestLinks(brand: String, model: String, using providerID: AIProviderID? = nil) async throws -> LinkSuggestions {
+        try await readyProvider(providerID).suggestLinks(brand: brand, model: model)
     }
 
     func suggestCompanions(for tool: ToolSnapshot) async throws -> [CompanionSuggestion] {

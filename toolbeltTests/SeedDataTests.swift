@@ -10,7 +10,9 @@ struct SeedDataTests {
     /// deallocate underneath it.
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Tool.self, ToolType.self, ToolPhoto.self])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        // Explicit .none matches toolbeltApp: .automatic drags CloudKit into
+        // in-memory stores on Xcode 27 betas and breaks saves.
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 

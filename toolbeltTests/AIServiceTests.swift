@@ -47,7 +47,7 @@ struct AIServiceTests {
 
     @Test func missingKeyThrows() {
         let service = makeService(provider: MockAIProvider(), key: nil)
-        #expect(throws: AIError.missingAPIKey) {
+        #expect(throws: AIError.missingAPIKey(.claude)) {
             try service.readyProvider()
         }
     }
@@ -77,25 +77,25 @@ struct AIServiceTests {
         return provider
     }
 
-    @Test func identificationPrefersCloudOverOnDeviceModel() throws {
+    @Test func alternativeOfferedWhenOnDeviceSelectedAndCloudReady() {
         let service = AIService(
             providers: [onDeviceMock(), MockAIProvider()],
             keyLookup: { _ in "sk-test" }
         )
         service.selectedProviderID = .foundationModels
-        #expect(try service.identificationProvider().id == .claude)
+        #expect(service.identificationAlternative?.id == .claude)
     }
 
-    @Test func identificationFallsBackToOnDeviceWithoutCloudKey() throws {
+    @Test func noAlternativeWithoutCloudKey() {
         let service = AIService(
             providers: [onDeviceMock(), MockAIProvider()],
             keyLookup: { _ in nil }
         )
         service.selectedProviderID = .foundationModels
-        #expect(try service.identificationProvider().id == .foundationModels)
+        #expect(service.identificationAlternative == nil)
     }
 
-    @Test func identificationRespectsSelectedCloudProvider() throws {
+    @Test func noAlternativeWhenCloudProviderSelected() {
         var gemini = MockAIProvider()
         gemini.id = .gemini
         let service = AIService(
@@ -103,7 +103,49 @@ struct AIServiceTests {
             keyLookup: { _ in "sk-test" }
         )
         service.selectedProviderID = .gemini
-        #expect(try service.identificationProvider().id == .gemini)
+        #expect(service.identificationAlternative == nil)
+    }
+
+    @Test func facadeUsesSelectionUnlessOverridden() async throws {
+        var gemini = MockAIProvider()
+        gemini.id = .gemini
+        gemini.suggestion = ToolDetailsSuggestion(name: "Gemini Drill")
+        var onDevice = onDeviceMock()
+        onDevice.suggestion = ToolDetailsSuggestion(name: "On-Device Drill")
+        let service = AIService(
+            providers: [onDevice, gemini],
+            keyLookup: { _ in "sk-test" }
+        )
+        service.selectedProviderID = .foundationModels
+        let viaSelected = try await service.lookupToolDetails(brand: "B", model: "M")
+        #expect(viaSelected.name == "On-Device Drill")
+        let viaOverride = try await service.lookupToolDetails(brand: "B", model: "M", using: .gemini)
+        #expect(viaOverride.name == "Gemini Drill")
+    }
+
+    @Test func lookupProviderFallsBackToSelectionUntilChoiceStored() {
+        let service = AIService(
+            providers: [onDeviceMock(), MockAIProvider()],
+            keyLookup: { _ in "sk-test" }
+        )
+        service.selectedProviderID = .foundationModels
+        service.identificationProviderID = nil
+        #expect(service.lookupProviderID == .foundationModels)
+        service.identificationProviderID = .claude
+        #expect(service.lookupProviderID == .claude)
+        service.identificationProviderID = nil
+        #expect(service.lookupProviderID == .foundationModels)
+    }
+
+    @Test func overrideStillRunsGuardChain() {
+        let service = AIService(
+            providers: [onDeviceMock(), MockAIProvider()],
+            keyLookup: { _ in nil }
+        )
+        service.selectedProviderID = .foundationModels
+        #expect(throws: AIError.missingAPIKey(.claude)) {
+            try service.readyProvider(.claude)
+        }
     }
 }
 
