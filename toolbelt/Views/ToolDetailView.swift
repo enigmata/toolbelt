@@ -60,6 +60,9 @@ struct ToolDetailView: View {
                 if !tool.serialNumber.isEmpty {
                     LabeledContent("Serial Number", value: tool.serialNumber)
                 }
+                if !tool.kit.isEmpty {
+                    LabeledContent("Kit / Combo", value: tool.kit)
+                }
                 if let type = tool.type {
                     LabeledContent("Type", value: "\(type.kind.rawValue) › \(type.path)")
                 }

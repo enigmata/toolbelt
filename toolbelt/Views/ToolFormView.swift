@@ -16,6 +16,7 @@ struct ToolFormView: View {
     @State private var modelName: String
     @State private var modelNumber: String
     @State private var serialNumber: String
+    @State private var kit: String
     @State private var selectedType: ToolType?
     @State private var powerSource: PowerSource?
     @State private var batteryVoltage: Int?
@@ -79,6 +80,7 @@ struct ToolFormView: View {
         _modelName = State(initialValue: tool?.modelName ?? "")
         _modelNumber = State(initialValue: tool?.modelNumber ?? "")
         _serialNumber = State(initialValue: tool?.serialNumber ?? "")
+        _kit = State(initialValue: tool?.kit ?? "")
         _selectedType = State(initialValue: tool?.type)
         _powerSource = State(initialValue: tool?.powerSource)
         _batteryVoltage = State(initialValue: tool?.batteryVoltage)
@@ -134,6 +136,7 @@ struct ToolFormView: View {
                     }
                     TextField("Model Number", text: $modelNumber)
                     TextField("Serial Number", text: $serialNumber)
+                    TextField("Kit / Combo", text: $kit)
                     Picker("Type", selection: $selectedType) {
                         Text("None").tag(ToolType?.none)
                         ForEach(sortedTypes) { type in
@@ -252,8 +255,9 @@ struct ToolFormView: View {
             .sheet(item: $pendingSuggestion) { pending in
                 SuggestionReviewView(
                     entries: reviewEntries(for: pending.suggestion),
-                    onApply: {
-                        apply(pending.suggestion)
+                    modelNumberOptions: modelNumberChoices(for: pending.suggestion),
+                    onApply: { fields, chosenNumber in
+                        apply(pending.suggestion, fields: fields, chosenModelNumber: chosenNumber)
                         pendingSuggestion = nil
                     },
                     onCancel: { pendingSuggestion = nil }
@@ -376,7 +380,7 @@ struct ToolFormView: View {
         }
         do {
             let suggestion = try await perform(kind, using: providerID)
-            if reviewEntries(for: suggestion).isEmpty {
+            if reviewEntries(for: suggestion).isEmpty, modelNumberChoices(for: suggestion).isEmpty {
                 aiErrorMessage = "\(providerID.shortName) found no new details — fields already filled or nothing recognized."
             } else {
                 pendingSuggestion = PendingSuggestion(suggestion: suggestion)
@@ -483,57 +487,103 @@ struct ToolFormView: View {
         return resized.jpegData(compressionQuality: 0.7)
     }
 
-    /// Suggested values that would land in currently-empty fields.
-    private func reviewEntries(for suggestion: ToolDetailsSuggestion) -> [(label: String, value: String)] {
-        var entries: [(String, String)] = []
-        func add(_ label: String, _ value: String?, ifEmpty current: String) {
+    /// Suggested values that would land in currently-empty fields. Competing
+    /// model-number variants are excluded — they go through
+    /// `modelNumberChoices` so the user picks exactly one.
+    private func reviewEntries(for suggestion: ToolDetailsSuggestion) -> [SuggestionReviewView.Entry] {
+        var entries: [SuggestionReviewView.Entry] = []
+        func add(_ field: SuggestionField, _ label: String, _ value: String?, ifEmpty current: String) {
             if let value, !value.isEmpty, current.trimmingCharacters(in: .whitespaces).isEmpty {
-                entries.append((label, value))
+                entries.append(.init(field: field, label: label, value: value))
             }
         }
-        add("Brand", suggestion.brand, ifEmpty: brand)
-        add("Model Name", suggestion.modelName, ifEmpty: modelName)
-        add("Model Number", suggestion.modelNumber, ifEmpty: modelNumber)
+        add(.brand, "Brand", suggestion.brand, ifEmpty: brand)
+        add(.modelName, "Model Name", suggestion.modelName, ifEmpty: modelName)
+        if modelNumberChoices(for: suggestion).isEmpty {
+            add(.modelNumber, "Model Number", singleModelNumber(from: suggestion), ifEmpty: modelNumber)
+        }
         if selectedType == nil, let path = suggestion.suggestedTypePath,
            matchType(forPath: path) != nil {
-            entries.append(("Type", path))
+            entries.append(.init(field: .type, label: "Type", value: path))
         }
         if powerSource == nil, let source = suggestion.powerSource,
            PowerSource(rawValue: source) != nil {
-            entries.append(("Power Source", source))
+            entries.append(.init(field: .powerSource, label: "Power Source", value: source))
         }
         if batteryVoltage == nil, let volts = suggestion.batteryVoltage {
-            entries.append(("Voltage", "\(volts)V"))
+            entries.append(.init(field: .voltage, label: "Voltage", value: "\(volts)V"))
         }
         if batteryAmpHours == nil, let ampHours = suggestion.batteryAmpHours {
-            entries.append(("Capacity", "\(ampHours.formatted())Ah"))
+            entries.append(.init(field: .ampHours, label: "Capacity", value: "\(ampHours.formatted())Ah"))
         }
-        add("Manufacturer Link", suggestion.manufacturerLink, ifEmpty: manufacturerLink)
-        add("How-To Link", suggestion.howToLink, ifEmpty: howToLink)
-        add("Notes", suggestion.notes, ifEmpty: notes)
+        add(.manufacturerLink, "Manufacturer Link", suggestion.manufacturerLink, ifEmpty: manufacturerLink)
+        add(.howToLink, "How-To Link", suggestion.howToLink, ifEmpty: howToLink)
+        add(.notes, "Notes", suggestion.notes, ifEmpty: notes)
         return entries
     }
 
-    private func apply(_ suggestion: ToolDetailsSuggestion) {
-        func fill(_ current: inout String, with value: String?) {
+    /// Variant article numbers worth asking about: only when the field is
+    /// still empty and the provider returned more than one distinct number.
+    /// When the provider didn't flag a likely variant but its single
+    /// `modelNumber` matches one option, that option inherits the default
+    /// checkmark.
+    private func modelNumberChoices(for suggestion: ToolDetailsSuggestion) -> [ModelNumberOption] {
+        guard modelNumber.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        var seen = Set<String>()
+        var options = (suggestion.modelNumberOptions ?? []).filter { option in
+            guard let number = option.number, !number.isEmpty else { return false }
+            return seen.insert(number).inserted
+        }
+        guard options.count > 1 else { return [] }
+        if !options.contains(where: { $0.isLikely == true }),
+           let single = suggestion.modelNumber,
+           let index = options.firstIndex(where: { $0.number == single }) {
+            options[index].isLikely = true
+        }
+        return options
+    }
+
+    /// The unambiguous model number, when there is one: the scalar answer,
+    /// or the sole variant the provider listed.
+    private func singleModelNumber(from suggestion: ToolDetailsSuggestion) -> String? {
+        if let number = suggestion.modelNumber, !number.isEmpty { return number }
+        let numbers = Set((suggestion.modelNumberOptions ?? []).compactMap(\.number).filter { !$0.isEmpty })
+        return numbers.count == 1 ? numbers.first : nil
+    }
+
+    private func apply(_ suggestion: ToolDetailsSuggestion, fields: Set<SuggestionField>, chosenModelNumber: String?) {
+        func fill(_ current: inout String, with value: String?, for field: SuggestionField) {
+            guard fields.contains(field) else { return }
             if current.trimmingCharacters(in: .whitespaces).isEmpty, let value, !value.isEmpty {
                 current = value
             }
         }
-        fill(&brand, with: suggestion.brand)
-        fill(&modelName, with: suggestion.modelName)
-        fill(&modelNumber, with: suggestion.modelNumber)
-        if selectedType == nil, let path = suggestion.suggestedTypePath {
+        fill(&brand, with: suggestion.brand, for: .brand)
+        fill(&modelName, with: suggestion.modelName, for: .modelName)
+        fill(&modelNumber, with: singleModelNumber(from: suggestion), for: .modelNumber)
+        if let chosenModelNumber, !chosenModelNumber.isEmpty,
+           modelNumber.trimmingCharacters(in: .whitespaces).isEmpty {
+            modelNumber = chosenModelNumber
+        }
+        // The applied article number's variant description doubles as the
+        // kit/combo the tool came in.
+        if kit.trimmingCharacters(in: .whitespaces).isEmpty,
+           let detail = (suggestion.modelNumberOptions ?? [])
+               .first(where: { $0.number == modelNumber })?.detail,
+           !detail.isEmpty {
+            kit = detail
+        }
+        if fields.contains(.type), selectedType == nil, let path = suggestion.suggestedTypePath {
             selectedType = matchType(forPath: path)
         }
-        if powerSource == nil, let source = suggestion.powerSource {
+        if fields.contains(.powerSource), powerSource == nil, let source = suggestion.powerSource {
             powerSource = PowerSource(rawValue: source)
         }
-        if batteryVoltage == nil { batteryVoltage = suggestion.batteryVoltage }
-        if batteryAmpHours == nil { batteryAmpHours = suggestion.batteryAmpHours }
-        fill(&manufacturerLink, with: suggestion.manufacturerLink)
-        fill(&howToLink, with: suggestion.howToLink)
-        fill(&notes, with: suggestion.notes)
+        if fields.contains(.voltage), batteryVoltage == nil { batteryVoltage = suggestion.batteryVoltage }
+        if fields.contains(.ampHours), batteryAmpHours == nil { batteryAmpHours = suggestion.batteryAmpHours }
+        fill(&manufacturerLink, with: suggestion.manufacturerLink, for: .manufacturerLink)
+        fill(&howToLink, with: suggestion.howToLink, for: .howToLink)
+        fill(&notes, with: suggestion.notes, for: .notes)
     }
 
     /// Case-insensitive taxonomy match: full path first, then the last
@@ -591,6 +641,7 @@ struct ToolFormView: View {
         target.modelName = modelName
         target.modelNumber = modelNumber
         target.serialNumber = serialNumber
+        target.kit = kit
         target.type = selectedType
         target.powerSource = selectedType?.kind == .power ? powerSource : nil
         target.batteryVoltage = powerSource == .battery ? batteryVoltage : nil

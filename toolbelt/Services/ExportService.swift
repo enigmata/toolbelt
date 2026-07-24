@@ -10,6 +10,7 @@ enum ExportService {
         var modelName: String
         var modelNumber: String
         var serialNumber: String
+        var kit: String
         var typePath: String?
         var kind: String?
         var disposition: String
@@ -30,6 +31,7 @@ enum ExportService {
             modelName = tool.modelName
             modelNumber = tool.modelNumber
             serialNumber = tool.serialNumber
+            kit = tool.kit
             typePath = tool.type?.path
             kind = tool.kind?.rawValue
             disposition = tool.disposition.rawValue
@@ -48,7 +50,7 @@ enum ExportService {
 
     static let csvHeader = [
         "Name", "Brand", "Model Name", "Model Number", "Serial Number",
-        "Type", "Kind", "Disposition", "Power Source",
+        "Kit / Combo", "Type", "Kind", "Disposition", "Power Source",
         "Battery Voltage", "Battery Ah", "Storage Location", "Purchase Date",
         "Store", "Manufacturer Link", "How-To Link", "Notes", "Added",
     ]
@@ -63,6 +65,7 @@ enum ExportService {
                 snapshot.modelName,
                 snapshot.modelNumber,
                 snapshot.serialNumber,
+                snapshot.kit,
                 snapshot.typePath ?? "",
                 snapshot.kind ?? "",
                 snapshot.disposition,

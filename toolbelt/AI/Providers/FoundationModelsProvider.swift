@@ -44,8 +44,10 @@ struct FoundationModelsProvider: AIProvider {
         var brand: String?
         @Guide(description: "Marketed model designation, e.g. \"XDT17\" or \"OSC 18\"")
         var modelName: String?
-        @Guide(description: "Manufacturer article/part number, e.g. \"10041861\" — not the model name")
+        @Guide(description: "Manufacturer article/part number, e.g. \"10041861\" — not the model name; when several kit variants exist, the one most likely meant, or empty if unclear")
         var modelNumber: String?
+        @Guide(description: "When the model is sold in multiple kits or configurations with different article numbers, all of them; empty when a single number applies", .maximumCount(6))
+        var modelNumberOptions: [ModelNumberOptionGen]?
         @Guide(description: "Taxonomy path like \"Drill › SDS Plus\" or \"Chisel › Wood\"")
         var suggestedTypePath: String?
         @Guide(description: "Exactly \"Corded\" or \"Battery\" for power tools; empty for hand tools")
@@ -64,11 +66,24 @@ struct FoundationModelsProvider: AIProvider {
         var dto: ToolDetailsSuggestion {
             ToolDetailsSuggestion(
                 name: name, brand: brand, modelName: modelName, modelNumber: modelNumber,
+                modelNumberOptions: modelNumberOptions?.map {
+                    ModelNumberOption(number: $0.number, detail: $0.detail, isLikely: $0.isLikely)
+                },
                 suggestedTypePath: suggestedTypePath, powerSource: powerSource,
                 batteryVoltage: batteryVoltage, batteryAmpHours: batteryAmpHours,
                 manufacturerLink: manufacturerLink, howToLink: howToLink, notes: notes
             )
         }
+    }
+
+    @Generable
+    struct ModelNumberOptionGen {
+        @Guide(description: "The article/model number for this variant, e.g. \"576589\"")
+        var number: String?
+        @Guide(description: "What the variant includes, e.g. \"Bare tool\" or \"Set with battery and charger\"")
+        var detail: String?
+        @Guide(description: "True only for the single variant most likely meant, when that is clear")
+        var isLikely: Bool?
     }
 
     @Generable
@@ -106,7 +121,12 @@ struct FoundationModelsProvider: AIProvider {
     func lookupToolDetails(brand: String, model: String) async throws -> ToolDetailsSuggestion {
         let session = LanguageModelSession(instructions: Self.instructions)
         let response = try await session.respond(
-            to: "Identify this tool and fill in its details. Brand: \(brand). Model name: \(model).",
+            to: """
+                Identify this tool and fill in its details. Brand: \(brand). \
+                Model name: \(model). If it is sold in multiple kits or \
+                configurations with different article numbers, list every \
+                variant in modelNumberOptions.
+                """,
             generating: ToolDetailsGen.self
         )
         return response.content.dto

@@ -9,6 +9,11 @@ struct ToolDetailsSuggestion: Codable, Equatable, Sendable {
     var modelName: String?
     /// Manufacturer article/part number, e.g. "10041861".
     var modelNumber: String?
+    /// All article numbers when the model ships in several kits or
+    /// configurations (bare tool, set with batteries, …). The UI lets the
+    /// user pick the variant they own; `modelNumber` stays the single
+    /// answer when there is no ambiguity.
+    var modelNumberOptions: [ModelNumberOption]?
     /// Taxonomy path guess like "Drill › SDS Plus" — mapped to an existing
     /// ToolType by the UI; ignored when nothing matches.
     var suggestedTypePath: String?
@@ -19,6 +24,18 @@ struct ToolDetailsSuggestion: Codable, Equatable, Sendable {
     var manufacturerLink: String?
     var howToLink: String?
     var notes: String?
+}
+
+/// One article/model number variant of a tool, e.g. Festool sells the
+/// OSC 18 as 576589 (bare tool) and 576590 (set with battery and charger).
+struct ModelNumberOption: Codable, Equatable, Sendable, Hashable {
+    var number: String?
+    /// What distinguishes this variant, e.g. "Bare tool" or
+    /// "Set with battery, charger, and accessories".
+    var detail: String?
+    /// True when the provider is confident this is the variant the user
+    /// means; at most one option should carry it.
+    var isLikely: Bool?
 }
 
 struct LabeledLink: Codable, Equatable, Sendable, Hashable {

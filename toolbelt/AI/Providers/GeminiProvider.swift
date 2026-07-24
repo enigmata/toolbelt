@@ -31,7 +31,9 @@ struct GeminiProvider: AIProvider {
                 Brand: \(brand)
                 Model name: \(model)
                 Report, from the manufacturer's site where possible: full \
-                product name, manufacturer article/part number, tool category \
+                product name, manufacturer article/part number (when the \
+                model ships in multiple kits or configurations, list every \
+                variant's number and what each kit includes), tool category \
                 and subtype, corded or battery, battery voltage and amp-hours, \
                 official product page URL, a how-to video URL, and one usage \
                 tip. Say "unknown" for anything you cannot verify.
@@ -214,7 +216,23 @@ struct GeminiProvider: AIProvider {
             ],
             "modelNumber": [
                 "type": "string", "nullable": true,
-                "description": "Manufacturer article/part number, e.g. \"10041861\" — not the model name",
+                "description": "Manufacturer article/part number, e.g. \"10041861\" — not the model name; null when several variants exist and none is clearly meant",
+            ],
+            "modelNumberOptions": [
+                "type": "array",
+                "nullable": true,
+                "description": "All article numbers when the model ships in multiple kits or configurations; null when a single number applies",
+                "items": [
+                    "type": "object",
+                    "properties": [
+                        "number": nullable("string"),
+                        "detail": [
+                            "type": "string", "nullable": true,
+                            "description": "What the variant includes, e.g. \"Bare tool\" or \"Set with battery and charger\"",
+                        ],
+                        "isLikely": ["type": "boolean", "nullable": true],
+                    ],
+                ],
             ],
             "suggestedTypePath": nullable("string"),
             "powerSource": ["type": "string", "nullable": true, "enum": ["Corded", "Battery"]],

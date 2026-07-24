@@ -36,6 +36,10 @@ final class Tool {
     /// not known at entry time.
     var modelNumber: String = ""
     var serialNumber: String = ""
+    /// The kit or combo this tool came in, e.g. "Set with battery and
+    /// charger" or "Part of XT269M 2-pc combo kit". Empty for tools bought
+    /// bare.
+    var kit: String = ""
     var type: ToolType?
     var dispositionRaw: String = Disposition.inUse.rawValue
     var powerSourceRaw: String?
@@ -109,7 +113,7 @@ final class Tool {
     func matches(_ query: String) -> Bool {
         guard !query.isEmpty else { return true }
         let haystack = [
-            name, brand, modelName, modelNumber, serialNumber,
+            name, brand, modelName, modelNumber, serialNumber, kit,
             storageLocation, purchaseStore, notes,
             type?.path ?? "", disposition.rawValue,
             powerSource?.rawValue ?? "", batteryLabel ?? "",

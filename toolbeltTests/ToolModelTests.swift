@@ -121,6 +121,7 @@ struct ToolModelTests {
         let sub = ToolType(name: "SDS Plus", kind: .power, parent: root)
         let tool = Tool(name: "Rotary Hammer", type: sub)
         tool.brand = "Festool"
+        tool.kit = "Set with battery and charger"
         tool.storageLocation = "Garage shelf B"
         tool.powerSource = .battery
         tool.batteryVoltage = 18
@@ -128,6 +129,7 @@ struct ToolModelTests {
         #expect(tool.matches("rotary"))         // name, case-insensitive
         #expect(tool.matches("festool"))        // brand
         #expect(tool.matches("SDS"))            // type path
+        #expect(tool.matches("charger"))        // kit/combo
         #expect(tool.matches("shelf"))          // storage location
         #expect(tool.matches("18V"))            // battery label
         #expect(tool.matches("In Use"))         // disposition

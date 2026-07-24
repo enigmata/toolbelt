@@ -31,6 +31,12 @@ struct ClaudeProvider: AIProvider {
                 manufacturer's site — especially the article/part number, \
                 power specs, and product page URL. Leave anything you cannot \
                 verify as null.
+                If the model is sold in multiple kits or configurations with \
+                different article numbers (bare tool, set with batteries, \
+                etc.), list every variant in modelNumberOptions with a short \
+                description of what it includes, mark isLikely on at most \
+                one, and set modelNumber only when a single number clearly \
+                applies.
                 For suggestedTypePath use "Type" or "Type › Subtype" naming, \
                 e.g. "Drill › SDS Plus" or "Chisel › Wood".
                 """,
@@ -208,7 +214,24 @@ struct ClaudeProvider: AIProvider {
             ],
             "modelNumber": [
                 "type": ["string", "null"],
-                "description": "Manufacturer article/part number, e.g. \"10041861\" — not the model name",
+                "description": "Manufacturer article/part number, e.g. \"10041861\" — not the model name; null when several variants exist and none is clearly meant",
+            ],
+            "modelNumberOptions": [
+                "type": ["array", "null"],
+                "description": "All article numbers when the model ships in multiple kits or configurations; null when a single number applies",
+                "items": [
+                    "type": "object",
+                    "properties": [
+                        "number": nullable("string"),
+                        "detail": [
+                            "type": ["string", "null"],
+                            "description": "What the variant includes, e.g. \"Bare tool\" or \"Set with battery and charger\"",
+                        ],
+                        "isLikely": ["type": ["boolean", "null"]],
+                    ],
+                    "required": ["number", "detail", "isLikely"],
+                    "additionalProperties": false,
+                ],
             ],
             "suggestedTypePath": nullable("string"),
             "powerSource": ["type": ["string", "null"], "enum": ["Corded", "Battery", NSNull()]],
@@ -219,8 +242,8 @@ struct ClaudeProvider: AIProvider {
             "notes": nullable("string"),
         ],
         "required": [
-            "name", "brand", "modelName", "modelNumber", "suggestedTypePath", "powerSource",
-            "batteryVoltage", "batteryAmpHours", "manufacturerLink", "howToLink", "notes",
+            "name", "brand", "modelName", "modelNumber", "modelNumberOptions", "suggestedTypePath",
+            "powerSource", "batteryVoltage", "batteryAmpHours", "manufacturerLink", "howToLink", "notes",
         ],
         "additionalProperties": false,
     ]

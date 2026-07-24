@@ -43,6 +43,7 @@ struct ExportServiceTests {
         let root = ToolType(name: "Drill", kind: .power)
         let tool = Tool(name: "Hammer Drill", type: root)
         tool.brand = "Makita"
+        tool.kit = "XT269M 2-pc combo kit"
         tool.powerSource = .battery
         tool.batteryVoltage = 18
         tool.purchaseDate = Date(timeIntervalSince1970: 1_700_000_000)
@@ -59,5 +60,6 @@ struct ExportServiceTests {
         #expect(decoded[0] == ExportService.ToolSnapshot(tool: tool))
         #expect(decoded[0].batteryVoltage == 18)
         #expect(decoded[0].typePath == "Drill")
+        #expect(decoded[0].kit == "XT269M 2-pc combo kit")
     }
 }

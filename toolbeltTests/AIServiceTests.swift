@@ -185,6 +185,19 @@ struct AIDTODecodingTests {
         #expect(decoded == ToolDetailsSuggestion())
     }
 
+    @Test func modelNumberOptionsDecode() throws {
+        let json = """
+            {"modelNumber": null, "modelNumberOptions": [
+              {"number": "576589", "detail": "Bare tool", "isLikely": null},
+              {"number": "576590", "detail": "Set with battery and charger", "isLikely": true}
+            ]}
+            """
+        let decoded = try JSONDecoder().decode(ToolDetailsSuggestion.self, from: Data(json.utf8))
+        #expect(decoded.modelNumberOptions?.count == 2)
+        #expect(decoded.modelNumberOptions?.first?.number == "576589")
+        #expect(decoded.modelNumberOptions?.last?.isLikely == true)
+    }
+
     @Test func companionListDecodes() throws {
         let json = """
             {"companions": [
